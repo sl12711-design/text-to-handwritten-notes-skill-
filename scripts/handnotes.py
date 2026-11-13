@@ -319,6 +319,70 @@ class HandSource:
         return xh * 0.95
 
 
+# --------------------------------------------------------------------------- iPad engine
+# The notebook engine keeps the photo texture of each learned letter (pressure, faint parts).
+# The iPad engine is separate: it retraces every letter as one clean, even Apple Pencil stroke.
+
+def _thin(b):
+    """Zhang-Suen thinning: reduce a stroke to its centre line (numpy only)."""
+    I = np.pad(b.astype(np.uint8), 1)
+    while True:
+        changed = False
+        for step in (0, 1):
+            P2, P3, P4 = I[:-2, 1:-1], I[:-2, 2:], I[1:-1, 2:]
+            P5, P6, P7 = I[2:, 2:], I[2:, 1:-1], I[2:, :-2]
+            P8, P9 = I[1:-1, :-2], I[:-2, :-2]
+            seq = [P2, P3, P4, P5, P6, P7, P8, P9, P2]
+            B = sum(seq[:8].__iter__())
+            A = sum(((seq[k] == 0) & (seq[k + 1] == 1)).astype(np.uint8) for k in range(8))
+            C = I[1:-1, 1:-1] == 1
+            if step == 0:
+                c2 = (P2 * P4 * P6 == 0) & (P4 * P6 * P8 == 0)
+            else:
+                c2 = (P2 * P4 * P8 == 0) & (P2 * P6 * P8 == 0)
+            kill = C & (B >= 2) & (B <= 6) & (A == 1) & c2
+            if kill.any():
+                I[1:-1, 1:-1][kill] = 0
+                changed = True
+        if not changed:
+            return I[1:-1, 1:-1].astype(bool)
+
+
+def pencil_stroke(img, width):
+    """Learned letter (photo cut) -> clean stroke of even width, no faint or missing parts."""
+    a = np.asarray(img, dtype=np.float32) / 255.0
+    pad = int(width) + 3
+    a = np.pad(a, pad)
+    b = a > 0.07                                      # keep even the faintest pen
+    bi = Image.fromarray((b * 255).astype(np.uint8))
+    bi = bi.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))   # close pen gaps, keep loops open
+    sk = _thin(np.asarray(bi) > 127)
+    comps = _components(sk)
+    if len(comps) > 1:  # photo specks would become dots: drop tiny pieces, keep real dots (i, j, :)
+        big = max(c[4] for c in comps)
+        for c in comps:
+            if c[4] < max(4, 0.06 * big) and c[4] < 7:
+                for (y, s0, e0) in c[5]:
+                    sk[y, s0:e0] = False
+    st = Image.fromarray((sk * 255).astype(np.uint8))
+    for _ in range(max(1, int(round(width / 2)))):
+        st = st.filter(ImageFilter.MaxFilter(3))
+    st = st.filter(ImageFilter.GaussianBlur(0.8))
+    st = st.point(lambda v: 255 if v > 110 else int(v * 255 / 110))
+    out = st.crop((pad, pad, st.width - pad, st.height - pad))
+    return out
+
+
+def PencilHandSource(hand):
+    """The iPad engine's copy of a handwriting: every learned letter retraced once, at full
+    resolution, as an even pencil stroke (the notebook engine keeps the original samples)."""
+    import copy
+    ph = copy.copy(hand)
+    w = max(2.0, hand.xh_px * 0.075)
+    ph.glyphs = {c: [(pencil_stroke(img, w), base) for img, base in v] for c, v in hand.glyphs.items()}
+    return ph
+
+
 # --------------------------------------------------------------------------- markup parsing
 
 INLINE = re.compile(
@@ -2037,6 +2101,8 @@ def main(argv=None):
             hand = DEFAULT_HAND if (DEFAULT_HAND / "hand.json").is_file() else None
         if hand:
             src = HandSource(hand, src)
+            if not photo:
+                src = PencilHandSource(src)  # iPad engine: separate stroke pipeline
         rd = Renderer(src, paper=paper, page=a.page, size=a.size, ink=ink, accent=a.accent,
                       important=a.important, bullet=a.bullet, seed=a.seed,
                       mess=max(a.mess, 1.35) if photo else (a.mess if a.mess_set else 0.5),  # tablet: tidy writing

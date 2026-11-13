@@ -18,7 +18,7 @@ It works as an [Agent Skill](https://agentskills.io) in Claude, ChatGPT, Codex a
 
 | Notebook photo (default) | iPad | Lined paper |
 |---|---|---|
-| ![Notebook photo](docs/v0.2.1-output-notebook.jpg) | ![iPad page](docs/v0.2.1-output-ipad.jpg) | ![Lined notebook](docs/v0.2.1-output-lines.jpg) |
+| ![Notebook photo](docs/v0.2.1-output-notebook.jpg) | ![iPad page](docs/v0.2.2-output-ipad.jpg) | ![Lined notebook](docs/v0.2.1-output-lines.jpg) |
 
 ## How to use it
 
@@ -82,6 +82,7 @@ The page format (markup, maths) is described in [SKILL.md](SKILL.md).
 ## How it works
 
 - **Learning:** the printed lines of the notebook are removed, every piece of ink is cut out, and the AI labels each piece by reading the page. Pieces holding whole words ("the", "dy") are kept as one block. Letters never written are built from the writer's own strokes (u from n, m from two n, w from two v). Accents are drawn on the plain letter.
+- **Two engines:** the notebook engine keeps each letter as the pen left it, with pressure and faint parts, then ages the page into a phone photo. The iPad engine retraces every letter as one even, solid pencil stroke on a clean page.
 - **Writing:** every letter is distorted a little differently, the baseline wanders and drifts down, and the ballpoint ink varies in pressure.
 - **Photo:** curved paper, light from one side, a darker band near the binding, punch holes, a slight tilt and perspective, the background showing, sensor noise and JPEG.
 

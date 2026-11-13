@@ -2,6 +2,12 @@
 
 Each version is a git tag. Open a tag to see its README, example images and code exactly as they were.
 
+## v0.2.2 (13 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.2)
+- The iPad style now has its own engine, separate from the notebook one. Every learned letter is retraced once as an even Apple Pencil stroke: the faint gaps are closed, the stroke is thinned to its centre line, then redrawn with one solid width. No more faded or missing parts.
+- Photo specks no longer turn into stray dots.
+- The notebook engine is unchanged.
+
 ## v0.2.1 (13 Nov 2026)
 [Code and examples at this version](../../tree/v0.2.1)
 - iPad style: solid, even Apple Pencil ink and straight, tidy lines. The ballpoint texture is now only used for the notebook photo.
