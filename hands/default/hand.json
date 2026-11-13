@@ -274,7 +274,7 @@
   {
    "char": "P",
    "file": "glyphs/p1_168.png",
-   "baseline": 89.0
+   "baseline": 88.0
   },
   {
    "char": ")",
@@ -539,7 +539,7 @@
   {
    "char": "P",
    "file": "glyphs/p1_326.png",
-   "baseline": 89.0
+   "baseline": 87.0
   },
   {
    "char": "b",
@@ -784,7 +784,7 @@
   {
    "char": "P",
    "file": "glyphs/p1_465.png",
-   "baseline": 112.0
+   "baseline": 111.0
   },
   {
    "char": "5",
@@ -820,11 +820,6 @@
    "char": ")",
    "file": "glyphs/p1_478.png",
    "baseline": 134.0
-  },
-  {
-   "char": "P",
-   "file": "glyphs/p1_480.png",
-   "baseline": 109.0
   },
   {
    "char": "(",
@@ -1022,11 +1017,6 @@
    "baseline": 78.0
   },
   {
-   "char": "P",
-   "file": "glyphs/p2_134.png",
-   "baseline": 89.0
-  },
-  {
    "char": "sale",
    "file": "glyphs/p2_138.png",
    "baseline": 86.0
@@ -1202,11 +1192,6 @@
    "baseline": 75.0
   },
   {
-   "char": "9",
-   "file": "glyphs/p2_271.png",
-   "baseline": 85.0
-  },
-  {
    "char": "0",
    "file": "glyphs/p2_274.png",
    "baseline": 69.0
@@ -1240,11 +1225,6 @@
    "char": "1",
    "file": "glyphs/p2_296.png",
    "baseline": 100.0
-  },
-  {
-   "char": "P",
-   "file": "glyphs/p2_300.png",
-   "baseline": 113.0
   },
   {
    "char": "(",

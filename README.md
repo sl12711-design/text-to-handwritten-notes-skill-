@@ -8,17 +8,17 @@ It works as an [Agent Skill](https://agentskills.io) in Claude, ChatGPT, Codex a
 
 **1. Photos of your handwriting** (optional). Any pages you already wrote work, so there is nothing to fill in:
 
-![Photos of real notes used as handwriting samples](docs/example-handwriting-photos.jpg)
+![Photos of real notes used as handwriting samples](docs/v0.2.1-handwriting-photos.jpg)
 
 **2. The content to write.** Paste it, or give a PDF or a photo; the AI reads it:
 
 > Q4. D'après les axiomes de Kolmogorov, $P(E_1)+P(E_2)+P(E_3)+P(E_4)=1$, so $0{,}01 + P(E_2) + 0{,}09 + 0{,}81 = 1$ … (a) probability of a hit on the first well and a miss on the second … (b) probability of a hit on at least one well …
 
-**3. The result** ([PDF](examples/q4-solution.pdf)):
+**3. The result** (PDFs: [notebook](examples/q4-solution-notebook.pdf), [iPad](examples/q4-solution-ipad.pdf), [lined](examples/q4-solution-lines.pdf)):
 
 | Notebook photo (default) | iPad | Lined paper |
 |---|---|---|
-| ![Notebook photo](docs/example-output-notebook.jpg) | ![iPad page](docs/example-output-ipad.jpg) | ![Lined notebook](docs/example-output-lines.jpg) |
+| ![Notebook photo](docs/v0.2.1-output-notebook.jpg) | ![iPad page](docs/v0.2.1-output-ipad.jpg) | ![Lined notebook](docs/v0.2.1-output-lines.jpg) |
 
 ## How to use it
 
@@ -93,6 +93,10 @@ The page format (markup, maths) is described in [SKILL.md](SKILL.md).
 - [ ] Joined cursive between letters that were cut separately
 - [ ] Red and blue ink mixed like real notes (titles in red)
 - [ ] Hand-drawn tables and diagrams
+
+## Versions
+
+Every version is kept, with its own example pages: see [CHANGELOG.md](CHANGELOG.md) and [Releases](../../releases).
 
 ## Licence
 
