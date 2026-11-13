@@ -2,6 +2,12 @@
 
 Each version is a git tag. Open a tag to see its README, example images and code exactly as they were.
 
+## v0.2.4 (13 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.4)
+- Smoother iPad writing: letters are retraced at 3x size, the photo's jagged outline is rounded off before the centre line is found, and the stroke is redrawn with round ends and anti-aliased edges.
+- The iPad version of each letter is computed once and kept in the handwriting folder (`pencil/`), so rendering stays under a second. It ships ready for the default handwriting.
+- Notebook engine unchanged.
+
 ## v0.2.3 (13 Nov 2026)
 [Code and examples at this version](../../tree/v0.2.3)
 - Renamed to **text-to-handwritten-notes-skill** (skill name `text-to-handwritten-notes`). The old GitHub address redirects here.

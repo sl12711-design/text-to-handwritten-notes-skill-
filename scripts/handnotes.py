@@ -348,38 +348,67 @@ def _thin(b):
             return I[1:-1, 1:-1].astype(bool)
 
 
+PENCIL_VERSION = "2"  # bump when pencil_stroke changes, so cached strokes are rebuilt
+
+
 def pencil_stroke(img, width):
-    """Learned letter (photo cut) -> clean stroke of even width, no faint or missing parts."""
+    """Learned letter (photo cut) -> one smooth stroke of even width, no faint or missing parts.
+    Works at 3x size so curves come out round and edges anti-aliased, then scales back."""
+    K = 3
     a = np.asarray(img, dtype=np.float32) / 255.0
     pad = int(width) + 3
     a = np.pad(a, pad)
-    b = a > 0.07                                      # keep even the faintest pen
-    bi = Image.fromarray((b * 255).astype(np.uint8))
-    bi = bi.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))   # close pen gaps, keep loops open
-    sk = _thin(np.asarray(bi) > 127)
+    big_img = Image.fromarray((a * 255).astype(np.uint8)).resize((a.shape[1] * K, a.shape[0] * K), Image.BICUBIC)
+    b = Image.fromarray(((np.asarray(big_img) > 18) * 255).astype(np.uint8))   # keep even the faintest pen
+    b = b.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(7))     # close pen gaps, keep loops open
+    b = b.filter(ImageFilter.GaussianBlur(K * 1.7))                            # round off the photo's jagged outline
+    sk = _thin(np.asarray(b) > 127)
     comps = _components(sk)
     if len(comps) > 1:  # photo specks would become dots: drop tiny pieces, keep real dots (i, j, :)
-        big = max(c[4] for c in comps)
+        bigc = max(c[4] for c in comps)
         for c in comps:
-            if c[4] < max(4, 0.06 * big) and c[4] < 7:
+            if c[4] < max(4 * K, 0.06 * bigc) and c[4] < 7 * K:
                 for (y, s0, e0) in c[5]:
                     sk[y, s0:e0] = False
     st = Image.fromarray((sk * 255).astype(np.uint8))
-    for _ in range(max(1, int(round(width / 2)))):
+    r = max(1, int(round(width * K / 2)))
+    for _ in range(r):
         st = st.filter(ImageFilter.MaxFilter(3))
-    st = st.filter(ImageFilter.GaussianBlur(0.8))
-    st = st.point(lambda v: 255 if v > 110 else int(v * 255 / 110))
-    out = st.crop((pad, pad, st.width - pad, st.height - pad))
-    return out
+    st = st.filter(ImageFilter.GaussianBlur(r * 0.9))            # rounded ends, smooth sides
+    st = st.point(lambda v: max(0, min(255, int((v - 70) * 255 / 60))))
+    st = st.resize((st.width // K, st.height // K), Image.LANCZOS)  # back to size, anti-aliased
+    return st.crop((pad, pad, st.width - pad, st.height - pad))
 
 
 def PencilHandSource(hand):
     """The iPad engine's copy of a handwriting: every learned letter retraced once, at full
     resolution, as an even pencil stroke (the notebook engine keeps the original samples)."""
     import copy
+    import hashlib
     ph = copy.copy(hand)
     w = max(2.0, hand.xh_px * 0.075)
-    ph.glyphs = {c: [(pencil_stroke(img, w), base) for img, base in v] for c, v in hand.glyphs.items()}
+    cache = Path(hand.dir) / "pencil"   # computed once, then reused (shipped for the default hand)
+    try:
+        cache.mkdir(exist_ok=True)
+    except OSError:
+        cache = None
+    ph.glyphs = {}
+    for c, v in hand.glyphs.items():
+        out = []
+        for img, base in v:
+            key = hashlib.md5(img.tobytes() + str(img.size).encode() + PENCIL_VERSION.encode()).hexdigest()[:16]
+            f = cache / f"{key}.png" if cache else None
+            if f is not None and f.is_file():
+                g = Image.open(f).convert("L")
+            else:
+                g = pencil_stroke(img, w)
+                if f is not None:
+                    try:
+                        g.save(f)
+                    except OSError:
+                        pass
+            out.append((g, base))
+        ph.glyphs[c] = out
     return ph
 
 
