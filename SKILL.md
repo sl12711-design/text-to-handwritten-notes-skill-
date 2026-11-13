@@ -59,7 +59,7 @@ That gives the default: a notebook photo, squared paper, blue ink, default handw
 
 | option | values |
 |---|---|
-| `--style` | **notebook** (phone photo of a real page: uneven light, lines drifting down, tilted sheet) · ipad (clean tablet page) |
+| `--style` | **notebook** (phone photo of a real page: uneven light, lines drifting down, tilted sheet, ballpoint ink) · ipad (clean tablet page: solid even ink, straight tidy lines) |
 | `--paper` | **squared** (notebook) or **grid** (ipad), lines, college, seyes, dots, blank |
 | `--hand` | **default**, or a folder made by `build-hand` or `learn` |
 | `--font` | use a handwriting font instead: caveat, kalam, patrick, gochi, indie, playpen |

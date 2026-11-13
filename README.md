@@ -31,7 +31,7 @@ Ask in plain words:
 1. **Your handwriting:** send **as many photos of your writing as you can** (notes, homework, any pages). More pages mean more samples of each letter and a more natural result; 3 to 6 pages is good. If you send none, a default handwriting is used.
 2. **The look:**
    - **notebook** (default): a phone photo of a real page, with uneven light, lines drifting down, and a sheet that is not quite straight.
-   - **ipad**: a clean tablet page.
+   - **ipad**: a clean tablet page, with solid, even Apple Pencil ink and straight, tidy lines.
 3. **The paper:** squared, lined, college ruled, French Seyès, dots, grid or blank.
 4. **The input:** text, PDF, photo, anything. The AI reads it, OCR included, and writes the page.
 5. **The output:** PDF or PNG.

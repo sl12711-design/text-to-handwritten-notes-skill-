@@ -893,7 +893,8 @@ class MathLayout:
 
 
 class Page:
-    def __init__(self, paper, inks):
+    def __init__(self, paper, inks, pen="ballpoint"):
+        self.pen = pen  # "ballpoint" (paper: pressure and grain) or "digital" (tablet: solid, even ink)
         self.paper = paper
         self.hl = Image.new("RGB", paper.size, (255, 255, 255))
         self.masks = {}
@@ -918,6 +919,13 @@ class Page:
 
     def finish(self):
         out = ImageChops.multiply(self.paper, self.hl.filter(ImageFilter.GaussianBlur(1.2)))
+        if self.pen == "digital":  # Apple Pencil look: every stroke fully opaque, smooth edges
+            for ink, m in self.masks.items():
+                col = Image.new("RGB", out.size, INKS.get(ink, INKS["black"]))
+                a = np.asarray(m.filter(ImageFilter.GaussianBlur(0.9)), dtype=np.float32) / 255.0
+                a = np.clip(a * 2.4 - 0.35, 0, 1)  # smooth photo-cut edges into a clean pencil line
+                out = Image.composite(col, out, Image.fromarray((a * 255).astype(np.uint8)))
+            return out
         W, H = out.size
         rng = np.random.default_rng(len(self.masks) * 7919 + W)
         # slow pressure changes (big blobs) and paper grain (pixel noise)
@@ -935,7 +943,7 @@ class Page:
 
 class Renderer:
     def __init__(self, source, paper="grid", page="a4", size="medium", ink="black",
-                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0, drift=0.0):
+                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0, drift=0.0, pen="ballpoint"):
         self.src = source
         self.rng = random.Random(seed)
         (self.W, self.H), width_mm = PAGES[page]
@@ -962,6 +970,7 @@ class Renderer:
         self.bullet = bullet
         self.mess = mess
         self.drift = drift  # average downward slope of lines, in degrees
+        self.pen = pen
         self.pages = []
         self._math = {}
         self.new_page()
@@ -970,7 +979,7 @@ class Renderer:
     def new_page(self):
         paper = make_paper(self.paper_kind, (self.W, self.H), self.line_h, self.first_base,
                            self.margin_x, self.mm, self.rng)
-        self.page = Page(paper, INKS)
+        self.page = Page(paper, INKS, self.pen)
         self.pages.append(self.page)
         self.base = self.first_base
 
@@ -1989,7 +1998,7 @@ def main(argv=None):
     r.add_argument("--important", default="red", choices=list(INKS))
     r.add_argument("--bullet", default="arrow", choices=["arrow", "dot", "dash"])
     r.add_argument("--size", default="medium", choices=list(SIZES))
-    r.add_argument("--mess", type=float, default=1.0, help="0.5 neat ... 1.5 rushed")
+    r.add_argument("--mess", type=float, default=None, help="0.5 neat ... 1.5 rushed (default: 0.5 ipad, 1.35 notebook)")
     r.add_argument("--seed", type=int)
 
     sg = sub.add_parser("segment", help="cut letters out of photos of notes already written; makes sheets to label")
@@ -2012,6 +2021,9 @@ def main(argv=None):
     if a.cmd == "render":
         text = sys.stdin.read() if a.input == "-" else Path(a.input).read_text(encoding="utf-8")
         style = STYLES[a.style]
+        a.mess_set = a.mess is not None
+        if a.mess is None:
+            a.mess = 1.0
         paper = a.paper or style["paper"]
         ink = a.ink or style["ink"]
         photo = style["photo"]
@@ -2028,7 +2040,9 @@ def main(argv=None):
             src = HandSource(hand, src)
         rd = Renderer(src, paper=paper, page=a.page, size=a.size, ink=ink, accent=a.accent,
                       important=a.important, bullet=a.bullet, seed=a.seed,
-                      mess=max(a.mess, 1.35) if photo else a.mess, drift=1.3 if photo else 0.0)
+                      mess=max(a.mess, 1.35) if photo else (a.mess if a.mess_set else 0.5),  # tablet: tidy writing
+                      drift=1.3 if photo else 0.0,
+                      pen="ballpoint" if photo else "digital")
         pages = rd.render(parse_blocks(text))
         if photo:
             pages = [photoize(pg, rd.rng, rd.mm) for pg in pages]
