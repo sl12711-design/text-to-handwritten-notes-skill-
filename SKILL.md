@@ -1,83 +1,98 @@
 ---
 name: handwritten-notes
-description: Turn any content (a PDF, pasted text, a web page, a photo of a page or a whiteboard) into notes that look handwritten, like iPad Goodnotes/Notes pages or a school notebook (grid, lined, dotted, college-ruled or French Seyès paper), exported as PDF or PNG. Can also learn the user's own handwriting from a photo of a filled template sheet. Use when the user asks for handwritten notes, notes "à la main", iPad-style notes, notebook-style notes, or to write something in their own handwriting.
+description: Turn any content (a PDF, pasted text, a solution, a web page, a photo of a page or whiteboard) into pages that look written by hand, either as a phone photo of a real notebook page (squared, lined or Seyès paper) or as a clean iPad page, exported as PDF or PNG. Writes in a bundled default handwriting, or in the user's own handwriting learned from photos of notes they already wrote. Maths is drawn by hand (fractions, sums, integrals, roots, intervals, Greek). Use when the user asks for handwritten notes, notes "à la main", notebook or iPad-style notes, or something written in their own handwriting.
 ---
 
 # Handwritten notes
 
-You turn content into **real notes** (short, structured, with highlights) and render them so they look written by hand.
-The renderer is `scripts/handnotes.py`. It only needs Python with Pillow and numpy (already present in ChatGPT and Claude code sandboxes). Fonts are in `fonts/`.
+You turn content into pages that look handwritten. The renderer is `scripts/handnotes.py`. It only needs Python with Pillow and numpy, which are already present in the ChatGPT and Claude code sandboxes.
+
+**Default result:** a phone photo of a notebook page on squared paper, in blue ink, written in the bundled default handwriting. If the user asks for nothing special, give them that.
+
+## Step 0: whose handwriting?
+
+Ask once, briefly: *"Send me as many photos of your own handwriting as you can (any pages you already wrote: notes, homework). Otherwise I'll use the default handwriting."*
+
+- **No photos:** use the default handwriting. Do not ask again.
+- **Photos:** learn them first (see *Learning a handwriting from photos* below), then render with `--hand their-hand`. More pages give more samples per letter and a more natural result. 3 to 6 pages is good.
 
 ## Step 1: read the input
 
-- **PDF**: extract the text (pypdf, pdftotext, or your own reader). For scanned PDFs, look at the page images.
-- **Photo / screenshot / whiteboard**: read it yourself with vision. Do not run OCR libraries.
-- **Text / web page**: use it as given.
+- **PDF:** extract the text with pypdf, pdftotext or your own reader. For a scanned PDF, look at the page images.
+- **Photo, screenshot, whiteboard:** read it yourself with vision. Do not run OCR libraries.
+- **Text, a solution, a web page:** use it as given.
 
-## Step 2: write the notes (this is the important part)
+## Step 2: write the page
 
-Do **not** copy the source. Write what a good student would write in the margin of the lesson:
+There are two cases.
 
-- One `# Title`, then `## Sections` that follow the source's structure.
-- Short lines, keywords, no full sentences unless a definition needs one. Aim for 15-30 % of the source length.
-- `==highlight==` the 1-3 key terms per section, not more. Each highlight is one key term or short phrase, so never put `==` around a whole line or bullet.
-- `!! ` for the one or two things that truly matter (deadlines, warnings, exam traps).
-- `->` for causes and consequences, `[ ]` for to-dos, `> ` for a side remark or an example.
-- Keep the user's language. Keep numbers, names and formulas exact.
-- If the source is long, keep each page to about 25 lines and group logically. The renderer adds pages by itself.
+- **Notes from a lesson:** write what a good student writes. Short lines, keywords, the source's structure, 15 to 30 % of its length.
+- **A solution or homework the user gives:** keep every step and every number. Write it the way a student writes on paper: `1/`, `a)` and `b)` labels, one equation per line, `=>` between steps. Do not add AI-looking decoration: no "Tip:", no highlighting everywhere, no bold. Underline or `!!` a final result only if the user would.
 
-Markup reference:
+Keep the user's language. Keep numbers, names and formulas exact.
+
+Markup:
 
 ```
 # Title                     ## Heading                ### Sub-heading (underlined)
 - bullet (2 spaces = one level deeper)                1. numbered
 -> arrow line               !! IMPORTANT line (red)   > side note (accent ink)
-[ ] to-do   [x] done        ---  separator            blank line = skip a line
-inline: ==highlight==  =={pink}highlight==  **bold**  __underline__  ~~crossed~~
-        {red}coloured ink{/}   ->  (drawn arrow)
-inks: black blue red green purple pencil · highlights: yellow green pink blue orange
-maths:  $...$ inline, $$...$$ alone on a line for a displayed formula (LaTeX subset)
+[ ] to-do   [x] done (ticked)   ---  separator        blank line = skip a line
+inline: ==highlight==  **bold**  __underline__  ~~crossed~~  {red}coloured ink{/}  ->  (drawn arrow)
+\$  = a dollar sign      $...$ inline maths      $$...$$ alone on a line = displayed formula
 ```
 
-**Maths.** Put every formula in `$...$`, even a short one like `$x^2$` or `$u_n$`. It is drawn by hand: powers and indices are raised or lowered, fractions get a bar, sums and integrals get their bounds, roots get a radical. Supported:
-`\frac{a}{b}`, `\sum_{k=1}^{n}`, `\prod`, `\int_a^b`, `\lim_{n \to +\infty}`, `\sqrt{x}`, `\sqrt[3]{x}`, `x^{n+1}`, `x_i`, `\left( ... \right)` (also `[ ] \{ \} |`), `\binom{n}{k}`, `\vec{u}`, `\bar{x}`, `\hat{p}`, `\mathbb{R}`, `\text{...}`, `\sin \ln \exp \max ...`, Greek letters (`\alpha ... \Omega`), `\in \notin \subset \cup \cap \emptyset \forall \exists \leq \geq \neq \approx \equiv \pm \times \cdot \infty \to \Rightarrow \iff \mapsto \partial`, spaces `\, \; \quad`.
-Intervals are written as they are read: `$[0, 1[$`, `$]-\infty ; 3]$`. Keep decimal commas if the source uses them. Unicode such as `x²`, `Aᶜ`, `x₁` also works outside `$`. Prefer `$$...$$` lines for big formulas (sums with bounds, integrals, stacked fractions) so they get their own space.
+**Maths.** Put every formula in `$...$`, even a short one like `$x^2$` or `$E_2$`. Supported:
+`\frac{a}{b}`, `\sum_{k=1}^{n}`, `\prod`, `\int_a^b`, `\lim_{n \to +\infty}`, `\sqrt{x}`, `\sqrt[3]{x}`, `x^{n+1}`, `x_i`, `\left( ... \right)`, `\binom{n}{k}`, `\vec{u}`, `\bar{x}`, `\mathbb{R}`, `\text{...}`, `\mid`, Greek letters, `\in \subset \cup \cap \emptyset \forall \exists \leq \geq \neq \approx \pm \times \cdot \infty \to \implies \iff`, and spaces `\, \; \quad`.
 
-Save the notes to `notes.md`.
+Write decimals as the source does (`0,81` or `0.81`), and large numbers as `50\,000` inside maths. Write intervals as they are read: `$[0, 1[$`. Put big formulas on their own `$$...$$` line. A formula too wide for the page is shrunk to fit, but splitting a long one at `=` onto two lines looks more natural.
+
+Save the page as `notes.md`.
 
 ## Step 3: render
 
 ```bash
-python scripts/handnotes.py render notes.md -o notes.pdf --paper grid --font caveat --seed 7
+python scripts/handnotes.py render notes.md -o notes.pdf
 ```
 
-Choose the options from what the user asked for (defaults in bold):
+That gives the default: a notebook photo, squared paper, blue ink, default handwriting. Change only what the user asked for:
 
 | option | values |
 |---|---|
-| `--paper` | **grid** (iPad), dots, lines, blank, college (US notebook), seyes (French notebook) |
+| `--style` | **notebook** (phone photo of a real page: uneven light, lines drifting down, tilted sheet) · ipad (clean tablet page) |
+| `--paper` | **squared** (notebook) or **grid** (ipad), lines, college, seyes, dots, blank |
+| `--hand` | **default**, or a folder made by `build-hand` or `learn` |
+| `--font` | use a handwriting font instead: caveat, kalam, patrick, gochi, indie, playpen |
+| `--ink` | **blue** (notebook) or **black** (ipad), red, green, purple, pencil |
 | `--page` | **a4**, letter, ipad, ipad-landscape |
-| `--font` | **caveat** (fast, slanted), kalam (rounded), patrick (neat print), gochi (marker), indie (bubbly), playpen (school, clearest maths) |
-| `--ink` / `--accent` / `--important` | **black** / **blue** / **red**, or green, purple, pencil |
-| `--bullet` | **arrow** (↳), dot, dash |
-| `--size` | small, **medium**, large |
-| `--mess` | 0.5 neat … **1.0** … 1.5 rushed |
+| `--seed N` | the same page every time; change N for another take |
 
-Use `-o notes.png` for an image instead of a PDF. A multi-page document then gives `notes-1.png`, `notes-2.png`, and so on.
+Use `-o notes.png` to get images (`notes-1.png`, `notes-2.png`, and so on) instead of a PDF.
 
 ## Step 4: check, then deliver
 
-Look at the first page (render a PNG if you cannot view PDFs). Check that no line runs off the page, that highlights sit on the key words, and that the look matches the request. Then give the user the file.
+Look at page 1 (render a PNG if you cannot view PDFs). Check that no line runs off the page or overlaps another, and that every number matches the source. Then give the file.
 
-## The user's own handwriting
+## Learning a handwriting from photos
 
-1. Generate the template, and give it to the user:
-   `python scripts/handnotes.py template -o handwriting-template.pdf`
-   (2 pages, one box per character, lowercase twice for natural variation).
-2. The user fills it in with the pen they normally use. They can print it, or import it into Goodnotes/Notes/Notability on an iPad and write on it. Then they send photos or screenshots of both pages. Photos can be tilted or sideways, but the 4 black corner squares must be visible.
-3. Learn:
-   `python scripts/handnotes.py learn page1.jpg page2.jpg -o my-hand`
-   (prints which characters were learned, and which ones a font will stand in for).
-4. Render with it: add `--hand my-hand` to the render command. Keep the `my-hand` folder, because it is what makes their handwriting reusable. Offer to zip it so they can re-upload it next time.
+This works from any pages the person already wrote. They do not need to fill anything in.
 
-If the user sends photos of notes they already wrote, but no template, say honestly that exact copying needs the template. Meanwhile, pick the bundled font that looks closest to their writing and render with it.
+1. **Cut:** `python scripts/handnotes.py segment p1.jpg p2.jpg p3.jpg -o hand-work`
+   This removes the printed lines of the notebook, cuts every piece of ink, and writes numbered sheets `hand-work/sheet-pageN-K.png`.
+
+2. **Label:** look at every sheet. You know what the pages say, because you can read the original photos. Write `hand-work/labels.json` (page numbers follow the order of the photos):
+   ```json
+   {"1": {"12": "a", "13": "(", "40": "the", "41": "7"}, "2": {"5": "é", "9": "dy"}}
+   ```
+   - Label only pieces you are sure of. Skip anything unclear, cut in half, glued to a neighbour, crossed out, or just a line fragment.
+   - A piece holding several joined letters can be labelled as that word or pair ("the", "le", "qu"). It is reused whenever that sequence appears, which looks very natural.
+   - Aim for at least 2 or 3 samples of each lowercase letter and each digit.
+
+3. **Build:** `python scripts/handnotes.py build-hand hand-work hand-work/labels.json -o their-hand`
+   This normalises sizes and ink strength, drops badly cut samples, and builds missing letters from the writer's own strokes (u from n, m from two n, w from two v, r, q). Accents (é è à ê ç ë) are drawn on their own plain letter. It prints the letters a font still stands in for.
+
+4. **Check one render.** Look at a page and zoom on any letter that looks broken or too faint. Find its samples in the `their-hand/glyphs` files listed in `their-hand/hand.json`, remove the bad label, and build again.
+
+Keep the `their-hand` folder: it is their handwriting. Offer to zip it so they can reuse it next time.
+
+There is also a template route (`template`, then `learn`): the person fills a 2-page grid of boxes. It is cleaner but more work for them, so only offer it if they prefer it.

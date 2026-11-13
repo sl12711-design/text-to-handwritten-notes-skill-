@@ -1,110 +1,99 @@
 # handwritten-notes-skill
 
-**Give an AI a PDF, some text or a photo. Get back notes that look written by hand,** on iPad grid paper or in a school notebook, in a handwriting font or **in your own handwriting**.
+**Give an AI some text, a PDF or a photo. Get back a page that looks written by hand,** like a phone photo of a real notebook or a clean iPad page. It can use a default handwriting or **yours**, learned from photos of notes you already wrote.
 
-It works as an [Agent Skill](https://agentskills.io) (Claude, ChatGPT, Codex, any agent that can run Python) and as a plain command-line tool. Free and open source.
+It works as an [Agent Skill](https://agentskills.io) in Claude, ChatGPT, Codex and any agent that can run Python. It also works as a plain command-line tool. Free and open source.
 
-| iPad grid | French notebook (Seyès) | Maths | Your own handwriting |
-|---|---|---|---|
-| ![iPad notes](docs/ipad-grid.png) | ![Seyès notebook](docs/cahier-seyes.jpg) | ![Maths](docs/maths.png) | ![Own handwriting](docs/own-handwriting.png) |
+## Example
 
-## What it does
+**1. Photos of your handwriting** (optional). Any pages you already wrote work, so there is nothing to fill in:
 
-1. **Reads anything**: a PDF, pasted text, a web page, or a photo of a page or whiteboard. The AI reads photos itself.
-2. **Writes real notes, not a copy**: a title and sections, short lines, highlighted key terms, red **IMPORTANT** lines, arrows, to-do boxes.
-3. **Draws them by hand**. Every letter is slightly different in size, angle and height. Lines drift a little. Underlines wobble, and highlighter strokes have rough edges.
-   - Papers: grid (iPad), dots, lines, blank, US college ruled, French Seyès.
-   - Inks: black, blue, red, green, purple, pencil.
-   - Maths: fractions, sums and integrals with their bounds, roots, powers and indices, intervals `[0, 1[`, ℝ ℕ, ∀ ∃ ∈ ⊂ ∩ ∪ ∅, and Greek letters, all drawn by hand.
-4. **Learns your handwriting**: fill in a 2-page template with your pen (on paper or on an iPad), take photos, and every future note is written with your letters. Photos can be tilted or sideways.
+![Photos of real notes used as handwriting samples](docs/example-handwriting-photos.jpg)
 
-## Install
+**2. The content to write.** Paste it, or give a PDF or a photo; the AI reads it:
 
-### Claude (claude.ai, desktop)
-Download the zip from [Releases](../../releases), then go to **Settings → Capabilities → Skills → Upload skill**.
+> Q4. D'après les axiomes de Kolmogorov, $P(E_1)+P(E_2)+P(E_3)+P(E_4)=1$, so $0{,}01 + P(E_2) + 0{,}09 + 0{,}81 = 1$ … (a) probability of a hit on the first well and a miss on the second … (b) probability of a hit on at least one well …
 
-### Claude Code
-```bash
-git clone https://github.com/yahyaraissouni/handwritten-notes-skill ~/.claude/skills/handwritten-notes
-```
+**3. The result** ([PDF](examples/q4-solution.pdf)):
 
-### ChatGPT
-- **If your ChatGPT has Skills**: upload the same zip.
-- **If it doesn't**: create a custom GPT. Paste the content of `SKILL.md` into *Instructions*, upload `scripts/handnotes.py` and the files in `fonts/` as *Knowledge*, and turn on *Code Interpreter*.
+| Notebook photo (default) | iPad | Lined paper |
+|---|---|---|
+| ![Notebook photo](docs/example-output-notebook.jpg) | ![iPad page](docs/example-output-ipad.jpg) | ![Lined notebook](docs/example-output-lines.jpg) |
 
-### Any other agent, or no AI at all
-```bash
-pip install pillow numpy
-python scripts/handnotes.py render examples/maths.md -o notes.pdf --paper grid --font caveat
-```
-
-## Use
+## How to use it
 
 Ask in plain words:
 
-> Turn this PDF into handwritten iPad notes.
-> Make notes from this photo of the board, blue ink, Seyès notebook paper.
-> Write my lecture summary in my own handwriting (here are my template photos).
+> Write this solution by hand on squared paper.
+> Make handwritten notes from this PDF, iPad style.
+> Here are 5 photos of my notes: write my homework in my handwriting.
 
-### The notes format (if you write it yourself)
+1. **Your handwriting:** send **as many photos of your writing as you can** (notes, homework, any pages). More pages mean more samples of each letter and a more natural result; 3 to 6 pages is good. If you send none, a default handwriting is used.
+2. **The look:**
+   - **notebook** (default): a phone photo of a real page, with uneven light, lines drifting down, and a sheet that is not quite straight.
+   - **ipad**: a clean tablet page.
+3. **The paper:** squared, lined, college ruled, French Seyès, dots, grid or blank.
+4. **The input:** text, PDF, photo, anything. The AI reads it, OCR included, and writes the page.
+5. **The output:** PDF or PNG.
 
-```markdown
-# Title
-## Section
-- bullet               (indent 2 spaces for a sub-bullet)
-1. numbered
--> arrow line
-!! IMPORTANT line in red
-> side note in blue
-[ ] to-do   [x] done
----
-==highlight==  =={pink}other colour==  **bold**  __underline__  ~~crossed out~~  {red}ink colour{/}
-Maths inline $\sum_{k=1}^{n} k = \frac{n(n+1)}{2}$ or on its own line:
-$$\int_0^1 x^2 \, dx = \frac{1}{3}$$
+Maths is drawn by hand: fractions, sums and integrals with bounds, limits, roots, powers and indices, intervals `[0, 1[`, ℝ ℕ, ∀ ∃ ∈ ⊂ ∩ ∪ ∅, and Greek letters. French accents are drawn on the writer's own letters.
+
+## Install
+
+- **Claude (claude.ai or desktop):** download the zip from [Releases](../../releases), then go to **Settings → Capabilities → Skills → Upload skill**.
+- **Claude Code:**
+  ```bash
+  git clone https://github.com/yahyaraissouni/handwritten-notes-skill ~/.claude/skills/handwritten-notes
+  ```
+- **ChatGPT:** upload the same zip if your ChatGPT has Skills. If it doesn't, create a custom GPT: paste `SKILL.md` into *Instructions*, upload `scripts/handnotes.py`, `fonts/` and `hands/` as *Knowledge*, and turn on *Code Interpreter*.
+- **Without an AI:**
+  ```bash
+  pip install pillow numpy
+  python scripts/handnotes.py render examples/q4-solution.md -o page.pdf
+  ```
+
+## Command line
+
+```bash
+# render (default = notebook photo, squared paper, blue ink, default handwriting)
+python scripts/handnotes.py render notes.md -o page.pdf
+python scripts/handnotes.py render notes.md -o page.pdf --style ipad
+python scripts/handnotes.py render notes.md -o page.png --paper lines --ink black
+
+# learn a handwriting from photos of pages already written
+python scripts/handnotes.py segment p1.jpg p2.jpg p3.jpg -o hand-work   # cuts the ink, makes numbered sheets
+#   -> write hand-work/labels.json from the sheets (the AI does this step, see SKILL.md)
+python scripts/handnotes.py build-hand hand-work hand-work/labels.json -o my-hand
+python scripts/handnotes.py render notes.md -o page.pdf --hand my-hand
 ```
-
-### Options
 
 | option | values |
 |---|---|
-| `--paper` | grid, dots, lines, blank, college, seyes |
+| `--style` | notebook (default), ipad |
+| `--paper` | squared, lines, college, seyes, grid, dots, blank |
+| `--hand` | default, a folder from `build-hand`, or none |
+| `--font` | caveat, kalam, patrick, gochi, indie, playpen (instead of a handwriting) |
+| `--ink` | blue, black, red, green, purple, pencil |
 | `--page` | a4, letter, ipad, ipad-landscape |
-| `--font` | caveat, kalam, patrick, gochi, indie, playpen |
-| `--hand DIR` | your learned handwriting |
-| `--ink`, `--accent`, `--important` | black, blue, red, green, purple, pencil |
-| `--bullet` | arrow (↳), dot, dash |
-| `--size` | small, medium, large |
-| `--mess` | 0.5 (neat) to 1.5 (rushed) |
-| `--seed N` | same output every time |
-| `-o file.pdf` / `-o file.png` | PDF, or one PNG per page |
+| `--seed N` | the same page every time |
 
-### Your own handwriting
+The page format (markup, maths) is described in [SKILL.md](SKILL.md).
 
-```bash
-python scripts/handnotes.py template -o handwriting-template.pdf   # print it, or write on it in Goodnotes
-python scripts/handnotes.py learn page1.jpg page2.jpg -o my-hand  # photos of both filled pages
-python scripts/handnotes.py render notes.md -o notes.pdf --hand my-hand --paper seyes --ink blue
-```
+## How it works
 
-Each lowercase letter is written twice, so the same letter never repeats identically. Any character you skipped is written with a font. Keep the `my-hand` folder: it is your handwriting.
+- **Learning:** the printed lines of the notebook are removed, every piece of ink is cut out, and the AI labels each piece by reading the page. Pieces holding whole words ("the", "dy") are kept as one block. Letters never written are built from the writer's own strokes (u from n, m from two n, w from two v). Accents are drawn on the plain letter.
+- **Writing:** every letter is distorted a little differently, the baseline wanders and drifts down, and the ballpoint ink varies in pressure.
+- **Photo:** curved paper, light from one side, a darker band near the binding, punch holes, a slight tilt and perspective, the background showing, sensor noise and JPEG.
 
 ## Roadmap
 
-- [x] iPad notes (grid, dots, lines) with highlights, arrows, checkboxes
-- [x] Notebooks: Seyès and college ruled, text sitting on the lines
+- [x] Notebook photo and iPad looks, 7 kinds of paper
 - [x] Maths drawn by hand
-- [x] Your handwriting from a template photo
-- [ ] Your handwriting from **any** page you already wrote, with no template (character segmentation, or a one-shot model such as [One-DM](https://github.com/dailenson/One-DM))
-- [ ] Joined cursive (letters connected), pen pressure
-- [ ] Hand-drawn diagrams and boxes
-- [ ] Ink bleed and paper photo look ("photographed notebook" mode)
-
-Contributions are welcome.
-
-## Similar projects
-
-[penpad](https://github.com/felipefrf/penpad) (Markdown + LaTeX to handwritten pages) and [text-to-handwriting](https://github.com/topics/handwriting-generator) web apps. This project differs in three ways: it is an **agent skill** (the AI writes the notes from any source, photos included), it **draws maths by hand**, and it **learns your handwriting from a phone photo** with no font-making step.
+- [x] A handwriting learned from any photos of notes, with no template
+- [ ] Joined cursive between letters that were cut separately
+- [ ] Red and blue ink mixed like real notes (titles in red)
+- [ ] Hand-drawn tables and diagrams
 
 ## Licence
 
-Code: MIT. Fonts: [Caveat](https://fonts.google.com/specimen/Caveat), [Kalam](https://fonts.google.com/specimen/Kalam), [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand), [Gochi Hand](https://fonts.google.com/specimen/Gochi+Hand), [Indie Flower](https://fonts.google.com/specimen/Indie+Flower), and [Playpen Sans](https://fonts.google.com/specimen/Playpen+Sans), all under the SIL Open Font License (see `fonts/`).
+Code: MIT. Fonts (used only when asked, or for missing characters): Caveat, Kalam, Patrick Hand, Gochi Hand, Indie Flower and Playpen Sans, all under the SIL Open Font License (see `fonts/`).

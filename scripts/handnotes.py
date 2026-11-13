@@ -114,6 +114,23 @@ def wobble_points(p0, p1, amp, rng, n=None):
     return pts
 
 
+def warp_glyph(m, amp, rng, cells=3):
+    """Smooth random distortion so the same letter is never drawn twice the same."""
+    if amp <= 0.3:
+        return m
+    W, H = m.size
+    nx, ny = cells, cells
+    pts = [[(W * i / nx + (rng.gauss(0, amp) if 0 < i < nx else 0),
+             H * j / ny + (rng.gauss(0, amp) if 0 < j < ny else 0)) for i in range(nx + 1)] for j in range(ny + 1)]
+    mesh = []
+    for j in range(ny):
+        for i in range(nx):
+            box = (int(W * i / nx), int(H * j / ny), int(W * (i + 1) / nx), int(H * (j + 1) / ny))
+            a, b, c, d = pts[j][i], pts[j + 1][i], pts[j + 1][i + 1], pts[j][i + 1]
+            mesh.append((box, (a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1])))
+    return m.transform(m.size, Image.MESH, mesh, Image.BICUBIC)
+
+
 def pen_line(draw, pts, width):
     draw.line(pts, fill=255, width=max(1, int(round(width))), joint="curve")
     r = width / 2
@@ -207,11 +224,44 @@ class HandSource:
             self.glyphs.setdefault(g["char"], []).append((img, g["baseline"]))
         self.fallback = fallback
         self.gap = 0.1
+        # whole words / letter pairs cut from real pages ("the", "he", "dollar") are used as one piece
+        self.multi = sorted((k for k in self.glyphs if len(k) > 1), key=len, reverse=True)
+
+    def merge(self, chars):
+        """Replace runs of characters that exist as one handwritten piece."""
+        if not self.multi:
+            return chars
+        out, i = [], 0
+        while i < len(chars):
+            for k in self.multi:
+                n = len(k)
+                seg = chars[i:i + n]
+                if len(seg) == n and "".join(c for c, _ in seg) == k and all(st == seg[0][1] for _, st in seg):
+                    out.append((k, seg[0][1]))
+                    i += n
+                    break
+            else:
+                out.append(chars[i])
+                i += 1
+        return out
+
+    def accented(self, ch):
+        """é -> ('e', acute) when only the plain letter was learned."""
+        if ch in self.glyphs or len(ch) != 1:
+            return None
+        import unicodedata
+        d = unicodedata.normalize("NFD", ch)
+        if len(d) == 2 and d[0] in self.glyphs and d[1] in "\u0301\u0300\u0302\u0308\u0327":
+            return d[0], d[1]
+        return None
 
     def has(self, ch):
-        return ch in self.glyphs
+        return ch in self.glyphs or self.accented(ch) is not None
 
     def metrics(self, ch, xh):
+        acc = self.accented(ch)
+        if acc:
+            return self.metrics(acc[0], xh)
         if ch not in self.glyphs:
             return self.fallback.metrics(ch, xh)
         img, base = self.glyphs[ch][0]
@@ -219,12 +269,41 @@ class HandSource:
         return self.width(ch, xh), base * s, max(0, (img.height - base) * s)
 
     def width(self, ch, xh):
+        acc = self.accented(ch)
+        if acc:
+            return self.width(acc[0], xh)
         if ch not in self.glyphs:
             return self.fallback.width(ch, xh)
         avg = sum(img.width for img, _ in self.glyphs[ch]) / len(self.glyphs[ch])
         return avg * xh / self.xh_px + xh * self.gap
 
     def glyph(self, ch, xh, rng):
+        acc = self.accented(ch)
+        if acc:
+            m, bx, by, adv = self.glyph(acc[0], xh, rng)
+            box = m.getbbox() or (bx, by - xh, bx + xh * 0.6, by)
+            cx = (box[0] + box[2]) / 2 + rng.gauss(0, xh * 0.04)
+            top, bot = box[1], box[3]
+            d = ImageDraw.Draw(m)
+            w = max(1, int(round(xh * 0.09)))
+            k = acc[1]
+            if k == "\u0301":    # acute
+                pts = [(cx - xh * 0.12, top - xh * 0.18), (cx + xh * 0.2, top - xh * 0.55)]
+            elif k == "\u0300":  # grave
+                pts = [(cx - xh * 0.2, top - xh * 0.55), (cx + xh * 0.12, top - xh * 0.18)]
+            elif k == "\u0302":  # circumflex
+                pts = [(cx - xh * 0.25, top - xh * 0.2), (cx, top - xh * 0.5), (cx + xh * 0.25, top - xh * 0.2)]
+            elif k == "\u0308":  # diaeresis
+                for dx in (-0.17, 0.17):
+                    x0, y0 = cx + dx * xh, top - xh * 0.3
+                    d.ellipse((x0 - w, y0 - w, x0 + w, y0 + w), fill=255)
+                pts = None
+            else:                 # cedilla
+                pts = [(cx, bot - 1), (cx + xh * 0.05, bot + xh * 0.15), (cx + xh * 0.2, bot + xh * 0.25),
+                       (cx + xh * 0.05, bot + xh * 0.45), (cx - xh * 0.15, bot + xh * 0.42)]
+            if pts:
+                d.line(pts, fill=255, width=w, joint="curve")
+            return m, bx, by, adv
         if ch not in self.glyphs:
             return self.fallback.glyph(ch, xh, rng)
         img, base = rng.choice(self.glyphs[ch])
@@ -280,7 +359,8 @@ def parse_inline(text, base):
         for c in s[pos:]:
             out.append((c, st))
 
-    emit(unicode_scripts_to_math(text), base)
+    emit(unicode_scripts_to_math(text.replace("\\$", "\x03")), base)
+    out = [("$" if c == "\x03" else c, st) for c, st in out]
     return out
 
 
@@ -350,6 +430,19 @@ def make_paper(kind, size, line_h, first_base, margin_x, mm, rng):
                 d.ellipse((x - 1.6, y - 1.6, x + 1.6, y + 1.6), fill=(180, 186, 196))
                 x += step
             y += step
+    elif kind == "squared":
+        step = 5 * mm
+        col = (178, 192, 216)
+        y = first_base % step
+        while y < H:
+            d.line([(0, y), (W, y)], fill=col, width=1)
+            y += step
+        x = 0.0
+        while x < W:
+            d.line([(x, 0), (x, H)], fill=col, width=1)
+            x += step
+        mx = margin_x - 0.5 * step
+        d.line([(mx, 0), (mx, H)], fill=(222, 120, 128), width=2)
     elif kind in ("lines", "college"):
         col = (170, 196, 232) if kind == "college" else (205, 211, 222)
         y = first_base
@@ -373,7 +466,7 @@ def make_paper(kind, size, line_h, first_base, margin_x, mm, rng):
             d.line([(x, 0), (x, H)], fill=vert, width=1)
             x += big
         d.line([(margin_x - 0.35 * big, 0), (margin_x - 0.35 * big, H)], fill=(225, 110, 120), width=2)
-    if kind in ("seyes", "college"):
+    if kind in ("seyes", "college", "squared"):
         a = np.asarray(img).astype(np.int16)
         noise = np.random.default_rng(rng.randint(0, 1 << 30)).normal(0, 2.0, a.shape[:2])[..., None]
         img = Image.fromarray(np.clip(a + noise, 0, 255).astype(np.uint8))
@@ -511,7 +604,7 @@ class MathParser:
             self.i -= 1
             return ("group", [])
         if not tok.startswith("\\"):
-            return ("ch", {"-": "−", "*": "·", "'": "′"}.get(tok, tok))
+            return ("ch", {"-": "−", "*": "·", "'": "′", "\x03": "$"}.get(tok, tok))
         name = tok[1:]
         if name in MATH_SPACES:
             return ("space", MATH_SPACES[name])
@@ -604,7 +697,16 @@ class MathLayout:
     def lay(self, n, xh, level=0):
         kind = n[0]
         if kind == "group":
-            return hcat([self.lay(c, xh, level) for c in n[1]])
+            kids, boxes = n[1], []
+            for i, c in enumerate(kids):
+                nxt = kids[i + 1] if i + 1 < len(kids) else None
+                prv = kids[i - 1] if i > 0 else None
+                if (c == ("ch", ",") or c == ("ch", ".")) and nxt and nxt[0] == "ch" and nxt[1].isdigit() \
+                        and prv and prv[0] == "ch" and prv[1].isdigit():
+                    boxes.append(self.char(c[1], xh, 9))  # 50,000 and 3,14 stay tight
+                else:
+                    boxes.append(self.lay(c, xh, level))
+            return hcat(boxes)
         if kind == "ch":
             return self.char(n[1], xh, level)
         if kind == "space":
@@ -816,15 +918,24 @@ class Page:
 
     def finish(self):
         out = ImageChops.multiply(self.paper, self.hl.filter(ImageFilter.GaussianBlur(1.2)))
+        W, H = out.size
+        rng = np.random.default_rng(len(self.masks) * 7919 + W)
+        # slow pressure changes (big blobs) and paper grain (pixel noise)
+        low = Image.fromarray((rng.random((H // 24 + 2, W // 24 + 2)) * 255).astype(np.uint8)).resize((W, H), Image.BICUBIC)
+        low = np.asarray(low, dtype=np.float32) / 255.0
+        grain = rng.random((H, W)).astype(np.float32)
+        tex = np.clip(0.88 + 0.22 * low, 0, 1) * np.clip(0.92 + 0.08 * grain, 0, 1)  # pressure varies, never washes out
         for ink, m in self.masks.items():
             col = Image.new("RGB", out.size, INKS.get(ink, INKS["black"]))
-            out = Image.composite(col, out, m.filter(ImageFilter.GaussianBlur(0.45)))
+            a = np.asarray(m.filter(ImageFilter.GaussianBlur(0.5)), dtype=np.float32) / 255.0
+            a = np.clip(np.power(a, 1.15) * 1.1, 0, 1) * tex  # slightly thinner edges, solid core
+            out = Image.composite(col, out, Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)))
         return out
 
 
 class Renderer:
     def __init__(self, source, paper="grid", page="a4", size="medium", ink="black",
-                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0):
+                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0, drift=0.0):
         self.src = source
         self.rng = random.Random(seed)
         (self.W, self.H), width_mm = PAGES[page]
@@ -839,14 +950,18 @@ class Renderer:
         else:
             self.line_h = 0.058 * self.W * SIZES[size]
             self.xh = 0.30 * self.line_h
-        self.margin_x = (32 if paper in ("seyes", "college") else 22) * self.mm
+        if paper == "squared":
+            self.line_h = 8.5 * self.mm * SIZES[size] ** 0.5
+            self.xh = 0.42 * self.line_h * SIZES[size] ** 0.5
+        self.margin_x = (32 if paper in ("seyes", "college", "squared") else 22) * self.mm
         self.right = self.W - 16 * self.mm
-        self.first_base = (30 if paper in ("seyes", "college") else 24) * self.mm
+        self.first_base = (30 if paper in ("seyes", "college", "squared") else 24) * self.mm
         if paper == "seyes":
             self.first_base = round(self.first_base / self.line_h) * self.line_h
         self.ink, self.accent, self.important = ink, accent, important
         self.bullet = bullet
         self.mess = mess
+        self.drift = drift  # average downward slope of lines, in degrees
         self.pages = []
         self._math = {}
         self.new_page()
@@ -1017,14 +1132,20 @@ class Renderer:
     def draw_math(self, box, x, base, ink):
         for it in box.items:
             if it[0] == "pen":
-                pts = [(x + px, base - py) for px, py in it[1]]
+                ox, oy = self.j(self.xh * 0.05), self.j(self.xh * 0.05)  # move the whole stroke, keep its shape
+                pts = [(x + px + ox, base - py + oy) for px, py in it[1]]
+                if len(pts) == 2:  # fraction bars, overlines: not ruler-straight
+                    (ax, ay), (bx2, by2) = pts
+                    pts = wobble_points((ax - self.j(self.xh * 0.1), ay), (bx2 + self.j(self.xh * 0.15), by2 + self.j(self.xh * 0.08)),
+                                        self.xh * 0.05, self.rng)
                 self.draw_strokes(ink, [pts], self.xh * it[2])
             elif it[0] == "sym":
                 self.symbol(it[1], x + it[2] - it[4] * 0.0, base - it[3], ink, it[4])
             else:
                 c, gx = it[1], it[4]
-                m, bx, by, adv = self.src.glyph(c, gx * (1 + self.j(0.02)), self.rng)
-                m = m.rotate(self.j(1.2), resample=Image.BICUBIC, center=(bx, by))
+                m, bx, by, adv = self.src.glyph(c, gx * (1 + self.j(0.04)), self.rng)
+                m = warp_glyph(m, gx * 0.045 * self.mess, self.rng)
+                m = m.rotate(self.j(2.0), resample=Image.BICUBIC, center=(bx, by))
                 px, py = x + it[2], base - it[3]
                 self.page.stamp(ink, m, px - bx, py - by)
                 if it[0] == "bb":  # blackboard bold: second stroke on the stem
@@ -1049,6 +1170,8 @@ class Renderer:
 
     # text
     def measure(self, chars, xh):
+        if hasattr(self.src, "merge"):
+            chars = self.src.merge(chars)
         w = 0
         for c, st in chars:
             if c == "\x01":
@@ -1067,6 +1190,10 @@ class Renderer:
         """Draw chars on one line, return list of placed (x0, x1, style) and new x."""
         placed = []
         x0_line = x
+        prev_space, word_k, word_dy = True, 1.0, 0.0
+        if hasattr(self.src, "merge"):
+            chars = self.src.merge(chars)
+        wave_ph = self.rng.uniform(0, 6.28)
         for c, st in chars:
             cink = st.get("ink") or ink
             if c == "\x01":
@@ -1086,12 +1213,18 @@ class Renderer:
                 x += adv
                 continue
             if c == " ":
-                adv = self.src.space(xh) * (1 + self.j(0.12))
+                prev_space = True
+                adv = self.src.space(xh) * (1 + self.j(0.22))
                 placed.append((x, x + adv, st))
                 x += adv
                 continue
-            gx = xh * (1 + self.j(0.035))
+            if prev_space:
+                word_k = 1 + self.j(0.05)
+                word_dy = self.j(xh * 0.07)
+            prev_space = False
+            gx = xh * word_k * (1 + self.j(0.04))
             m, bx, by, adv = self.src.glyph(c, gx, self.rng)
+            m = warp_glyph(m, gx * 0.045 * self.mess, self.rng)
             if st.get("bold"):
                 sh = max(1, int(round(gx * 0.07)))
                 m2 = Image.new("L", (m.width + sh, m.height), 0)
@@ -1102,9 +1235,10 @@ class Renderer:
             m = m.rotate(ang, resample=Image.BICUBIC, center=(bx, by))
             if self.rng.random() < 0.5:
                 m = m.point(lambda v, k=self.rng.uniform(0.86, 1.0): int(v * k))
-            yb = base + (x - x0_line) * line_slope + self.j(xh * 0.03)
+            wave = math.sin((x - x0_line) / (xh * 9) + wave_ph) * xh * 0.09 * self.mess
+            yb = base + (x - x0_line) * line_slope + word_dy + wave + self.j(xh * 0.035)
             self.page.stamp(cink, m, x - bx + self.j(xh * 0.02), yb - by)
-            adv = adv * (1 + self.j(0.04))
+            adv = adv * (1 + self.j(0.06))
             placed.append((x, x + adv, st))
             x += adv
         return placed, x
@@ -1182,8 +1316,8 @@ class Renderer:
             if up > 0:
                 self.next_line(math.ceil(up / self.line_h))
             self.ensure_room(keep_lines if i == 0 else 1)
-            slope = math.tan(math.radians(self.j(0.35)))
-            x = x_text + self.j(xh * 0.08)
+            slope = math.tan(math.radians(self.drift * self.rng.uniform(0.6, 1.4) + self.j(0.7)))
+            x = x_text + self.j(xh * 0.22) + (self.base - self.first_base) * math.tan(math.radians(self.drift * 0.25))
             if i == 0 and first_prefix:
                 first_prefix(self.base)
             placed, x_end = self.write_chars(ln, x, self.base, xh, ink, slope)
@@ -1263,16 +1397,23 @@ class Renderer:
                 def pre(base, x=x, done=b["done"]):
                     self.checkbox(x, base, self.ink, xh, done)
 
-                st2 = {"strike": True} if b["done"] else {}
+                st2 = {}
                 self.paragraph(parse_inline(b["text"], st2), x + xh * 2.1, xh, self.ink, first_prefix=pre)
             elif k == "math":
+                indent = xh * 3
                 box = self.math_box(b["text"], xh * 1.1, display=True)
+                avail = self.right - x - indent
+                if box.w > avail:  # too wide: smaller indent, then scale the formula down to fit
+                    indent = xh * 0.8
+                    avail = self.right - x - indent
+                    k = max(0.55, avail / box.w * 0.98)
+                    box = self.math_box(b["text"], xh * 1.1 * k, display=True)
                 n = max(1, math.ceil((box.a + box.d + xh * 0.6) / self.line_h))
                 self.ensure_room(n)
                 top = self.base - self.line_h * 0.72
                 bottom = self.base + (n - 1) * self.line_h + self.line_h * 0.28
                 yb = (top + bottom) / 2 + (box.a - box.d) / 2
-                self.draw_math(box, x + xh * 3, yb, self.ink)
+                self.draw_math(box, x + indent, yb, self.ink)
                 if n > 1:
                     self.next_line(n - 1)
             elif k == "aside":
@@ -1280,6 +1421,81 @@ class Renderer:
             else:
                 self.paragraph(parse_inline(b["text"], st), x, xh, self.ink)
         return [p.finish() for p in self.pages]
+
+
+def photoize(page, rng, mm):
+    """Make a clean page look like a phone photo of a real notebook sheet."""
+    W, H = page.size
+    nr = np.random.default_rng(rng.randint(0, 1 << 30))
+    a = np.asarray(page, dtype=np.float32)
+
+    def noise(scale):
+        h, w = max(2, H // scale + 2), max(2, W // scale + 2)
+        n = Image.fromarray((nr.random((h, w)) * 255).astype(np.uint8)).resize((W, H), Image.BICUBIC)
+        return np.asarray(n, dtype=np.float32) / 255.0 - 0.5
+
+    # crumpled / curved sheet: height map lit from one side
+    hmap = 1.0 * noise(420) + 0.25 * noise(140) + 0.05 * noise(40)
+    gy, gx = np.gradient(hmap * 60)
+    ang = rng.uniform(0, 6.28)
+    shade = 1 + 0.09 * (np.cos(ang) * gx + np.sin(ang) * gy)
+    # the sheet curls up near the binding: darker band on the left
+    curl = 1 - 0.13 * np.exp(-(np.mgrid[0:H, 0:W][1].astype(np.float32) / (0.06 * W)))
+    shade = shade * curl
+    # uneven room light: one corner darker, vignette
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    lx, ly = rng.uniform(-0.3, 1.3), rng.uniform(-0.3, 1.3)
+    dist = np.hypot(xx / W - lx, yy / H - ly)
+    light = 1.06 - 0.32 * dist + 0.05 * noise(400)
+    vign = 1 - 0.22 * (np.hypot(xx / W - 0.5, yy / H - 0.5) ** 2) * 2
+    a = a * (shade * light * vign)[..., None]
+    # phone white balance: slightly warm or slightly blue, a bit grey
+    tint = np.array([rng.uniform(0.94, 1.02), rng.uniform(0.95, 1.0), rng.uniform(0.9, 1.04)], dtype=np.float32)
+    a = a * tint * 0.93 + 6
+    sheet = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+    # punch holes on the left
+    d = ImageDraw.Draw(sheet)
+    r = 3 * mm
+    for fy in (0.12, 0.5, 0.88):
+        cx, cy = 9 * mm + rng.uniform(-2, 2), H * fy + rng.uniform(-8, 8)
+        d.ellipse((cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3), fill=(205, 205, 200))
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(38, 40, 44))
+    # place on a dark background, tilted, with perspective
+    pad = int(0.07 * W)
+    bgc = np.array([rng.uniform(25, 60)] * 3) + nr.normal(0, 4, 3)
+    canvas = np.ones((H + 2 * pad, W + 2 * pad, 3), np.float32) * bgc
+    canvas += nr.normal(0, 6, canvas.shape[:2])[..., None] + 18 * noise_like(canvas.shape[:2], nr)[..., None]
+    bg = Image.fromarray(np.clip(canvas, 0, 255).astype(np.uint8))
+    shadow = Image.new("L", bg.size, 0)
+    ImageDraw.Draw(shadow).rectangle((pad + 10, pad + 14, pad + W + 14, pad + H + 16), fill=140)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(18))
+    bg = Image.composite(Image.new("RGB", bg.size, (10, 10, 12)), bg, shadow)
+    bg.paste(sheet, (pad, pad))
+    CW, CH = bg.size
+    j = lambda k: rng.uniform(-k, k) * W
+    src = [(pad, pad), (pad + W, pad), (pad + W, pad + H), (pad, pad + H)]
+    dst = [(pad + j(0.035), pad + j(0.03)), (pad + W + j(0.035), pad + j(0.03)),
+           (pad + W + j(0.03), pad + H + j(0.03)), (pad + j(0.03), pad + H + j(0.03))]
+    photo = bg.transform(bg.size, Image.PERSPECTIVE, _perspective_coeffs(dst, src), Image.BICUBIC,
+                         fillcolor=tuple(int(v) for v in bgc))
+    photo = photo.rotate(rng.uniform(-2.5, 2.5), resample=Image.BICUBIC, fillcolor=tuple(int(v) for v in bgc))
+    # crop a little so the page fills the frame like a phone shot
+    cut = int(pad * rng.uniform(0.35, 0.75))
+    photo = photo.crop((cut, cut, CW - cut, CH - cut))
+    # lens softness, sensor noise, JPEG
+    photo = photo.filter(ImageFilter.GaussianBlur(0.7))
+    b = np.asarray(photo, dtype=np.float32) + nr.normal(0, 3.5, (photo.height, photo.width, 1))
+    photo = Image.fromarray(np.clip(b, 0, 255).astype(np.uint8))
+    import io
+    buf = io.BytesIO()
+    photo.save(buf, "JPEG", quality=int(rng.uniform(62, 78)))
+    return Image.open(io.BytesIO(buf.getvalue())).convert("RGB")
+
+
+def noise_like(shape, nr):
+    H, W = shape
+    n = Image.fromarray((nr.random((H // 40 + 2, W // 40 + 2)) * 255).astype(np.uint8)).resize((W, H), Image.BICUBIC)
+    return np.asarray(n, dtype=np.float32) / 255.0 - 0.5
 
 
 def save_pages(pages, out):
@@ -1487,7 +1703,271 @@ def learn(images, out_dir):
     return len(glyphs), chars, missing
 
 
+# --------------------------------------------------------------------------- learning from pages already written
+# 1. `segment` cuts every ink blob out of photos of real notes and draws numbered sheets.
+# 2. The AI (or a person) looks at the sheets and writes labels.json: {"<page>": {"<id>": "a"}}.
+#    A label can be a whole word or a letter pair ("the", "dy") when the writer joins letters.
+# 3. `build-hand` turns the labelled pieces into a handwriting folder usable with --hand.
+
+def _ink_map(img):
+    """0..1 darkness of the pen relative to the local paper colour (works on blue/black/red ink)."""
+    a = np.asarray(ImageOps.exif_transpose(img).convert("RGB"), dtype=np.float32)
+    g = a.min(2)
+    bg = np.asarray(Image.fromarray(g.astype(np.uint8)).filter(ImageFilter.MaxFilter(15))
+                    .filter(ImageFilter.GaussianBlur(25)), dtype=np.float32)
+    return (bg - g) / np.maximum(bg, 1)
+
+
+def _remove_rules(m, L=45, thick=7):
+    """Drop pixels of long thin horizontal runs (the printed lines of the notebook)."""
+    H, W = m.shape
+    c = np.pad(m.astype(np.int32).cumsum(1), ((0, 0), (1, 0)))
+    xs = np.arange(W)
+    lo, hi = np.clip(xs - L // 2, 0, W), np.clip(xs + L // 2, 0, W)
+    run = (c[:, hi] - c[:, lo]) >= (hi - lo) * 0.9
+    v = np.pad(m.astype(np.int32).cumsum(0), ((1, 0), (0, 0)))
+    ys = np.arange(H)
+    vert = v[np.clip(ys + thick + 1, 0, H), :] - v[np.clip(ys - thick, 0, H), :]
+    line = m & run & (vert <= thick)
+    line = line | np.roll(line, 1, 0) | np.roll(line, -1, 0)
+    return m & ~line
+
+
+def _components(m):
+    """Connected blobs, by runs (no scipy). Returns [y0, y1, x0, x1, area, runs]."""
+    H, W = m.shape
+    parent = []
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    prev, allruns = [], []
+    for y in range(H):
+        d = np.diff(np.concatenate(([0], m[y].view(np.int8), [0])))
+        starts, ends = np.nonzero(d == 1)[0], np.nonzero(d == -1)[0]
+        cur, j = [], 0
+        for s, e in zip(starts, ends):
+            idx = len(parent)
+            parent.append(idx)
+            while j < len(prev) and prev[j][1] < s:
+                j += 1
+            k = j
+            while k < len(prev) and prev[k][0] <= e:
+                if prev[k][1] >= s - 1:
+                    a, b = find(idx), find(prev[k][2])
+                    if a != b:
+                        parent[a] = b
+                k += 1
+            cur.append((s, e, idx))
+            allruns.append((y, int(s), int(e), idx))
+        prev = [(s - 1, e, i) for s, e, i in cur]
+    comps = {}
+    for y, s, e, i in allruns:
+        c = comps.setdefault(find(i), [H, 0, W, 0, 0, []])
+        c[0], c[1] = min(c[0], y), max(c[1], y)
+        c[2], c[3] = min(c[2], s), max(c[3], e - 1)
+        c[4] += e - s
+        c[5].append((y, s, e))
+    return list(comps.values())
+
+
+def segment(images, work):
+    """Cut ink pieces out of photos of real notes; write numbered sheets for labelling."""
+    work = Path(work)
+    work.mkdir(parents=True, exist_ok=True)
+    font = ImageFont.truetype(str(find_font("patrick")), 22)
+    sheets = []
+    for pnum, path in enumerate(images, 1):
+        rel = _ink_map(Image.open(path))
+        m = _remove_rules(rel > 0.24)
+        md = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3))) > 0
+        alpha = np.clip((rel - 0.2) / 0.3, 0, 1)
+        items = []
+        for c in _components(md):
+            y0, y1, x0, x1, area = c[:5]
+            if area < 60 or x1 - x0 >= 200 or y1 - y0 >= 160:
+                continue
+            sel = np.zeros((y1 - y0 + 1, x1 - x0 + 1), bool)
+            for (y, s, e) in c[5]:
+                sel[y - y0, s - x0:e - x0] = True
+            items.append(dict(y0=y0, y1=y1, x0=x0, x1=x1, cy=(y0 + y1) / 2,
+                              a=alpha[y0:y1 + 1, x0:x1 + 1] * sel * m[y0:y1 + 1, x0:x1 + 1]))
+        items.sort(key=lambda d: d["cy"])
+        hs = sorted(d["y1"] - d["y0"] for d in items) or [30]
+        medh = hs[len(hs) // 2]
+        lines = []
+        for d in items:
+            if lines and abs(d["cy"] - lines[-1]["cy"]) < medh * 0.9:
+                L = lines[-1]
+                L["it"].append(d)
+                L["cy"] = float(np.mean([e["cy"] for e in L["it"]]))
+            else:
+                lines.append({"cy": d["cy"], "it": [d]})
+        idir = work / f"items{pnum}"
+        idir.mkdir(exist_ok=True)
+        meta, n = [], 0
+        for li, L in enumerate(lines):
+            L["it"].sort(key=lambda d: d["x0"])
+            for d in L["it"]:
+                Image.fromarray((d["a"] * 255).astype(np.uint8)).save(idir / f"{n}.png")
+                meta.append(dict(id=n, line=li, y0=int(d["y0"]), x0=int(d["x0"]),
+                                 h=int(d["y1"] - d["y0"] + 1), w=int(d["x1"] - d["x0"] + 1)))
+                n += 1
+        (idir / "meta.json").write_text(json.dumps(meta))
+        # numbered sheets, 12 x 14 pieces each
+        cell, cols, rows = 150, 12, 14
+        for sh in range((n + cols * rows - 1) // (cols * rows)):
+            S = Image.new("RGB", (cols * cell, rows * cell), "white")
+            D = ImageDraw.Draw(S)
+            for k in range(sh * cols * rows, min(n, (sh + 1) * cols * rows)):
+                r, c = divmod(k - sh * cols * rows, cols)
+                im = Image.open(idir / f"{k}.png")
+                sc = min(1.4, (cell - 30) / max(im.width, im.height))
+                im2 = im.resize((max(1, int(im.width * sc)), max(1, int(im.height * sc))))
+                S.paste(Image.new("RGB", im2.size, (20, 30, 120)), (c * cell + 5, r * cell + 5), im2)
+                D.text((c * cell + 5, r * cell + cell - 26), str(k), fill="red", font=font)
+                D.rectangle((c * cell, r * cell, (c + 1) * cell - 1, (r + 1) * cell - 1), outline=(225, 225, 225))
+            sp = work / f"sheet-page{pnum}-{sh + 1}.png"
+            S.save(sp)
+            sheets.append(sp)
+    (work / "pages.json").write_text(json.dumps([str(p) for p in images]))
+    return sheets
+
+
+_XLET = set("acemnorsuvwxzσπ")
+_ASC = set("bdfhkltABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789Σ√∈")
+_DESC = set("gjpqyμ")
+_PAREN = set("()[]{}|")
+_OPS = set("+-=<>≤≥×")
+_OPSIZE = {"=": 0.6, "-": 0.15, "+": 1.0, "<": 1.0, ">": 1.0, "≤": 1.15, "≥": 1.15, "×": 0.8}
+
+
+def _cls(ch):
+    if len(ch) > 1:
+        return "word"
+    for name, s in (("x", _XLET), ("asc", _ASC), ("desc", _DESC), ("paren", _PAREN), ("op", _OPS)):
+        if ch in s:
+            return name
+    return "int" if ch == "∫" else "other"
+
+
+def build_hand(work, labels_path, out_dir, target=50.0):
+    """Labelled pieces -> handwriting folder (same format as `learn`)."""
+    import statistics as st
+    work, out = Path(work), Path(out_dir)
+    labels = json.loads(Path(labels_path).read_text(encoding="utf-8"))
+    (out / "glyphs").mkdir(parents=True, exist_ok=True)
+    recs = []
+    for page, lab in labels.items():
+        meta = {m["id"]: m for m in json.loads((work / f"items{page}" / "meta.json").read_text())}
+        xs = [meta[int(i)]["h"] for i, c in lab.items() if _cls(c) == "x"]
+        ds = [meta[int(i)]["h"] for i, c in lab.items() if len(c) == 1 and c.isdigit()]
+        est = ([st.median(xs)] if len(xs) >= 3 else []) + ([0.58 * st.median(ds)] if ds else [])
+        if not est:
+            hs = [meta[int(i)]["h"] for i in lab]
+            est = [0.55 * st.median(hs)]
+        xh = sum(est) / len(est)  # this page's x-height in pixels
+        for i, c in lab.items():
+            if c:
+                m = meta[int(i)]
+                recs.append(dict(page=page, id=i, ch=c, h=m["h"], xh=xh))
+    med = {}
+    for k in ("x", "asc", "desc", "paren", "op", "int", "other"):
+        v = [r["h"] / r["xh"] for r in recs if _cls(r["ch"]) == k]
+        if v:
+            med[k] = st.median(v)
+    per = {}
+    for r in recs:
+        per.setdefault(r["ch"], []).append(r["h"] / r["xh"])
+    per = {c: st.median(v) for c, v in per.items() if len(v) >= 3}
+    glyphs = []
+    for r in recs:
+        c, k = r["ch"], _cls(r["ch"])
+        ratio = r["h"] / r["xh"]
+        ref = _OPSIZE.get(c) or per.get(c, med.get(k))
+        if ref and k != "word":  # keep natural variation, cut the outliers
+            ratio = ref * min(1.12, max(0.88, ratio / ref))
+        s = ratio * target / r["h"]
+        img = Image.open(work / f"items{r['page']}" / f"{r['id']}.png")
+        img = img.resize((max(1, round(img.width * s)), max(1, round(img.height * s))), Image.LANCZOS)
+        a = np.asarray(img, dtype=np.float32)
+        hi = np.percentile(a[a > 20], 80) if (a > 20).sum() > 10 else 255
+        img = Image.fromarray(np.clip(a * (255.0 / max(hi, 50)), 0, 255).astype(np.uint8))  # full ink
+        H = img.height
+        if k == "desc" or (k == "word" and any(ch in _DESC for ch in c)):
+            base = H - 0.6 * target
+        elif k == "paren":
+            base = H - 0.3 * target
+        elif k == "op":
+            base = H / 2 + 0.45 * target
+        elif k == "int":
+            base = H * 0.55 + 0.2 * target
+        else:
+            base = H
+        name = f"glyphs/p{r['page']}_{r['id']}.png"
+        img.save(out / name)
+        glyphs.append({"char": c, "file": name, "baseline": float(base),
+                       "_ink": float((np.asarray(img, dtype=np.float32) / 255).sum())})
+    # drop badly cut samples: far less ink than the other samples of the same letter
+    inks = {}
+    for g in glyphs:
+        inks.setdefault(g["char"], []).append(g["_ink"])
+    glyphs = [{k: v for k, v in g.items() if k != "_ink"} for g in glyphs
+              if not (len(inks[g["char"]]) >= 2 and g["_ink"] < 0.55 * st.median(inks[g["char"]]))]
+    # letters never written on the pages: built from the writer's own strokes
+    by = {}
+    for g in glyphs:
+        by.setdefault(g["char"], []).append(g)
+
+    def load(g):
+        return Image.open(out / g["file"])
+
+    def add(ch, img, base, tag):
+        name = f"glyphs/syn_{ord(ch):04x}_{tag}.png"
+        img.save(out / name)
+        glyphs.append({"char": ch, "file": name, "baseline": float(base), "synthetic": True})
+
+    def twice(im, step):
+        w = int(im.width * step)
+        A = Image.new("L", (w + im.width, im.height), 0)
+        A.paste(im, (0, 0))
+        B = Image.new("L", A.size, 0)
+        B.paste(im, (w, 0))
+        return ImageChops.lighter(A, B)
+
+    for n, g in enumerate(by.get("n", [])):
+        im = load(g)
+        if "u" not in by:
+            add("u", im.rotate(180, expand=True), im.height, n)
+        if "r" not in by:
+            add("r", im.crop((0, 0, max(2, int(im.width * 0.58)), im.height)), im.height, n)
+        if "m" not in by:
+            mm = twice(im, 0.78)
+            add("m", mm.resize((int(mm.width * 0.82), im.height)), im.height, n)
+    for n, g in enumerate(by.get("v", [])):
+        if "w" not in by:
+            add("w", twice(load(g), 0.7), g["baseline"], n)
+    for src_c, dst_c, fn in (("p", "q", ImageOps.mirror), ("0", "O", None), ("l", "I", None)):
+        for n, g in enumerate(by.get(src_c, [])):
+            if dst_c not in by:
+                add(dst_c, fn(load(g)) if fn else load(g), g["baseline"], n)
+    (out / "hand.json").write_text(json.dumps({"xheight_px": target, "glyphs": glyphs,
+                                               "source": "photos of notes already written"},
+                                              ensure_ascii=False, indent=1), encoding="utf-8")
+    return glyphs
+
+
 # --------------------------------------------------------------------------- CLI
+
+DEFAULT_HAND = HERE.parent / "hands" / "default"
+STYLES = {  # what each look means when the user does not override it
+    "notebook": dict(paper="squared", ink="blue", photo=True),   # phone photo of a real notebook page
+    "ipad": dict(paper="grid", ink="black", photo=False),        # clean page exported from a tablet
+}
+
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1496,17 +1976,30 @@ def main(argv=None):
     r = sub.add_parser("render", help="notes markup -> handwritten PDF/PNG")
     r.add_argument("input", help="notes markup file (.md/.txt), or - for stdin")
     r.add_argument("-o", "--out", default="notes.pdf")
-    r.add_argument("--paper", default="grid", choices=["grid", "dots", "lines", "blank", "college", "seyes"])
+    r.add_argument("--style", default="notebook", choices=list(STYLES),
+                   help="notebook: photo of a real notebook (default) · ipad: clean tablet page")
+    r.add_argument("--paper", choices=["squared", "lines", "college", "seyes", "grid", "dots", "blank"],
+                   help="default: squared for notebook, grid for ipad")
     r.add_argument("--page", default="a4", choices=list(PAGES))
-    r.add_argument("--font", default="caveat", help="caveat kalam patrick gochi indie playpen, or a .ttf path")
-    r.add_argument("--hand", help="folder made by `learn` (your own handwriting)")
-    r.add_argument("--ink", default="black", choices=list(INKS))
+    r.add_argument("--hand", default="default",
+                   help="handwriting folder (from build-hand or learn); 'default' = the bundled one; 'none' = use --font")
+    r.add_argument("--font", help="use a handwriting font instead of a hand: caveat kalam patrick gochi indie playpen, or .ttf")
+    r.add_argument("--ink", choices=list(INKS), help="default: blue for notebook, black for ipad")
     r.add_argument("--accent", default="blue", choices=list(INKS))
     r.add_argument("--important", default="red", choices=list(INKS))
     r.add_argument("--bullet", default="arrow", choices=["arrow", "dot", "dash"])
     r.add_argument("--size", default="medium", choices=list(SIZES))
     r.add_argument("--mess", type=float, default=1.0, help="0.5 neat ... 1.5 rushed")
     r.add_argument("--seed", type=int)
+
+    sg = sub.add_parser("segment", help="cut letters out of photos of notes already written; makes sheets to label")
+    sg.add_argument("images", nargs="+")
+    sg.add_argument("-o", "--out", default="hand-work")
+
+    bh = sub.add_parser("build-hand", help="labelled pieces (labels.json) -> handwriting folder")
+    bh.add_argument("work", help="folder made by segment")
+    bh.add_argument("labels", help='labels.json: {"1": {"12": "a", "40": "the"}, "2": {...}}')
+    bh.add_argument("-o", "--out", default="my-hand")
 
     t = sub.add_parser("template", help="sheet to fill by hand so the tool learns your handwriting")
     t.add_argument("-o", "--out", default="handwriting-template.pdf")
@@ -1518,19 +2011,42 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.cmd == "render":
         text = sys.stdin.read() if a.input == "-" else Path(a.input).read_text(encoding="utf-8")
-        src = FontSource(find_font(a.font))
+        style = STYLES[a.style]
+        paper = a.paper or style["paper"]
+        ink = a.ink or style["ink"]
+        photo = style["photo"]
+        src = FontSource(find_font(a.font or "caveat"))
         for name in ("playpen", "patrick", "kalam", "caveat", "indie", "gochi"):
             fp = find_font(name)
             if Path(fp) != Path(src.path):
                 src.fallbacks.append(FontSource(fp))
         src.fallbacks += [FontSource(p) for p in SYSTEM_FALLBACKS if Path(p).is_file()][:1]
-        if a.hand:
-            src = HandSource(a.hand, src)
-        rd = Renderer(src, paper=a.paper, page=a.page, size=a.size, ink=a.ink, accent=a.accent,
-                      important=a.important, bullet=a.bullet, seed=a.seed, mess=a.mess)
+        hand = None if (a.font and a.hand == "default") or a.hand == "none" else a.hand
+        if hand == "default":
+            hand = DEFAULT_HAND if (DEFAULT_HAND / "hand.json").is_file() else None
+        if hand:
+            src = HandSource(hand, src)
+        rd = Renderer(src, paper=paper, page=a.page, size=a.size, ink=ink, accent=a.accent,
+                      important=a.important, bullet=a.bullet, seed=a.seed,
+                      mess=max(a.mess, 1.35) if photo else a.mess, drift=1.3 if photo else 0.0)
         pages = rd.render(parse_blocks(text))
+        if photo:
+            pages = [photoize(pg, rd.rng, rd.mm) for pg in pages]
         out = save_pages(pages, a.out)
         print(f"wrote {out} ({len(pages)} page{'s' if len(pages) > 1 else ''})")
+    elif a.cmd == "segment":
+        sheets = segment(a.images, a.out)
+        print(f"{len(sheets)} sheets to label in {a.out}:")
+        for sp in sheets:
+            print("  ", sp)
+    elif a.cmd == "build-hand":
+        gl = build_hand(a.work, a.labels, a.out)
+        chars = sorted({g["char"] for g in gl})
+        print(f"{len(gl)} pieces, {len(chars)} characters/words -> {a.out}")
+        print("have:", " ".join(chars))
+        miss = [c for c in "abcdefghijklmnopqrstuvwxyz0123456789" if c not in chars]
+        if miss:
+            print("missing (a font stands in, accents are drawn on the plain letter):", " ".join(miss))
     elif a.cmd == "template":
         out = make_template(a.out)
         print(f"wrote {out} ({PAGES_NEEDED} pages, {len(CHARSET)} boxes)")
