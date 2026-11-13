@@ -444,14 +444,13 @@ def make_paper(kind, size, line_h, first_base, margin_x, mm, rng):
         mx = margin_x - 0.5 * step
         d.line([(mx, 0), (mx, H)], fill=(222, 120, 128), width=2)
     elif kind in ("lines", "college"):
-        col = (170, 196, 232) if kind == "college" else (205, 211, 222)
+        col = (170, 196, 232)  # notebook blue
         y = first_base
         while y < H - line_h * 0.3:
             d.line([(0, y), (W, y)], fill=col, width=2)
             y += line_h
-        if kind == "college":
-            mx = margin_x - 0.45 * line_h
-            d.line([(mx, 0), (mx, H)], fill=(232, 140, 150), width=2)
+        mx = margin_x - 0.45 * line_h  # red margin line, like a real lined notebook
+        d.line([(mx, 0), (mx, H)], fill=(232, 140, 150), width=2)
     elif kind == "seyes":
         big, small = line_h, line_h / 4
         heavy, light, vert = (150, 140, 205), (205, 200, 236), (205, 200, 236)
@@ -961,7 +960,7 @@ class Renderer:
         if paper == "squared":
             self.line_h = 8.5 * self.mm * SIZES[size] ** 0.5
             self.xh = 0.42 * self.line_h * SIZES[size] ** 0.5
-        self.margin_x = (32 if paper in ("seyes", "college", "squared") else 22) * self.mm
+        self.margin_x = (32 if paper in ("seyes", "college", "squared", "lines") else 22) * self.mm
         self.right = self.W - 16 * self.mm
         self.first_base = (30 if paper in ("seyes", "college", "squared") else 24) * self.mm
         if paper == "seyes":
