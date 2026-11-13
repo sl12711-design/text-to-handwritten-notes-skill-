@@ -2,6 +2,10 @@
 
 Each version is a git tag. Open a tag to see its README, example images and code exactly as they were.
 
+## v0.2.3 (13 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.3)
+- Renamed to **text-to-handwritten-notes-skill** (skill name `text-to-handwritten-notes`). The old GitHub address redirects here.
+
 ## v0.2.2 (13 Nov 2026)
 [Code and examples at this version](../../tree/v0.2.2)
 - The iPad style now has its own engine, separate from the notebook one. Every learned letter is retraced once as an even Apple Pencil stroke: the faint gaps are closed, the stroke is thinned to its centre line, then redrawn with one solid width. No more faded or missing parts.

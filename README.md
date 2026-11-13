@@ -1,4 +1,4 @@
-# handwritten-notes-skill
+# text-to-handwritten-notes-skill
 
 **Give an AI some text, a PDF or a photo. Get back a page that looks written by hand,** like a phone photo of a real notebook or a clean iPad page. It can use a default handwriting or **yours**, learned from photos of notes you already wrote.
 
@@ -43,7 +43,7 @@ Maths is drawn by hand: fractions, sums and integrals with bounds, limits, roots
 - **Claude (claude.ai or desktop):** download the zip from [Releases](../../releases), then go to **Settings → Capabilities → Skills → Upload skill**.
 - **Claude Code:**
   ```bash
-  git clone https://github.com/yahyaraissouni/handwritten-notes-skill ~/.claude/skills/handwritten-notes
+  git clone https://github.com/yahyaraissouni/text-to-handwritten-notes-skill ~/.claude/skills/text-to-handwritten-notes
   ```
 - **ChatGPT:** upload the same zip if your ChatGPT has Skills. If it doesn't, create a custom GPT: paste `SKILL.md` into *Instructions*, upload `scripts/handnotes.py`, `fonts/` and `hands/` as *Knowledge*, and turn on *Code Interpreter*.
 - **Without an AI:**

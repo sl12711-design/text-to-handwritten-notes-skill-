@@ -1,9 +1,9 @@
 ---
-name: handwritten-notes
+name: text-to-handwritten-notes
 description: Turn any content (a PDF, pasted text, a solution, a web page, a photo of a page or whiteboard) into pages that look written by hand, either as a phone photo of a real notebook page (squared, lined or Seyès paper) or as a clean iPad page, exported as PDF or PNG. Writes in a bundled default handwriting, or in the user's own handwriting learned from photos of notes they already wrote. Maths is drawn by hand (fractions, sums, integrals, roots, intervals, Greek). Use when the user asks for handwritten notes, notes "à la main", notebook or iPad-style notes, or something written in their own handwriting.
 ---
 
-# Handwritten notes
+# Text to handwritten notes
 
 You turn content into pages that look handwritten. The renderer is `scripts/handnotes.py`. It only needs Python with Pillow and numpy, which are already present in the ChatGPT and Claude code sandboxes.
 
