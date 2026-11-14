@@ -99,7 +99,7 @@ The page format (markup, maths) is described in [SKILL.md](SKILL.md).
 
 ## Versions
 
-Every version is kept, with its own example pages: see [CHANGELOG.md](CHANGELOG.md) and [Releases](../../releases).
+What changed in each version: [CHANGELOG.md](CHANGELOG.md). Download the latest from [Releases](../../releases).
 
 ## Licence
 
