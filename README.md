@@ -4,6 +4,8 @@
 
 It works as an [Agent Skill](https://agentskills.io) in Claude, ChatGPT, Codex and any agent that can run Python. It also works as a plain command-line tool. Free and open source.
 
+⭐ **If it helped you, star the repo.** It helps other students find it.
+
 ## Example
 
 **1. Photos of your handwriting** (optional). Any pages you already wrote work, so there is nothing to fill in:
