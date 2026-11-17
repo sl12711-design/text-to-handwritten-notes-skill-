@@ -2,8 +2,12 @@
 
 What changed in each version. Only the latest release is kept for download.
 
+## v0.2.5 (17 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.5)
+- Squared paper is the default in every case: with the default handwriting, with your own handwriting, or with only an assignment to write out. The paper in your photos no longer changes it.
+- Darker, fuller ballpoint ink on the notebook photo: faint parts of the letters no longer look faded.
+
 ## v0.2.4 (13 Nov 2026)
-[Code and examples at this version](../../tree/v0.2.4)
 - Smoother iPad writing: letters are retraced at 3x size, the photo's jagged outline is rounded off before the centre line is found, and the stroke is redrawn with round ends and anti-aliased edges.
 - The iPad version of each letter is computed once and kept in the handwriting folder (`pencil/`), so rendering stays under a second. It ships ready for the default handwriting.
 - Notebook engine unchanged.

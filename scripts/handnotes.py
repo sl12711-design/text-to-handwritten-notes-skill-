@@ -1028,7 +1028,7 @@ class Page:
         for ink, m in self.masks.items():
             col = Image.new("RGB", out.size, INKS.get(ink, INKS["black"]))
             a = np.asarray(m.filter(ImageFilter.GaussianBlur(0.5)), dtype=np.float32) / 255.0
-            a = np.clip(np.power(a, 1.15) * 1.1, 0, 1) * tex  # slightly thinner edges, solid core
+            a = np.clip(np.power(a, 0.8) * 1.45, 0, 1) * tex  # firm ballpoint: faint parts of a stroke come up solid
             out = Image.composite(col, out, Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)))
         return out
 

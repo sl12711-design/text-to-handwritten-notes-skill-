@@ -9,6 +9,8 @@ You turn content into pages that look handwritten. The renderer is `scripts/hand
 
 **Default result:** a phone photo of a notebook page on squared paper, in blue ink, written in the bundled default handwriting. If the user asks for nothing special, give them that.
 
+**The paper is squared by default in every case.** The user may send only their handwriting and an assignment, only the text they want written by hand, or nothing but a request. Always use squared paper unless they explicitly name another paper or the iPad look. Do not copy the paper from their handwriting photos or from the assignment's layout: a lined or blank photo is only a source of letters.
+
 ## Step 0: whose handwriting?
 
 Ask once, briefly: *"Send me as many photos of your own handwriting as you can (any pages you already wrote: notes, homework). Otherwise I'll use the default handwriting."*
@@ -55,7 +57,7 @@ Save the page as `notes.md`.
 python scripts/handnotes.py render notes.md -o notes.pdf
 ```
 
-That gives the default: a notebook photo, squared paper, blue ink, default handwriting. Change only what the user asked for:
+That gives the default: a notebook photo, squared paper, blue ink, default handwriting. With their own handwriting it is the same command plus `--hand their-hand`, still on squared paper. Change only what the user explicitly asked for:
 
 | option | values |
 |---|---|
