@@ -2,11 +2,6 @@
  "xheight_px": 50.0,
  "glyphs": [
   {
-   "char": "(",
-   "file": "glyphs/p1_6.png",
-   "baseline": 85.0
-  },
-  {
    "char": ")",
    "file": "glyphs/p1_40.png",
    "baseline": 130.0
@@ -15,11 +10,6 @@
    "char": "M",
    "file": "glyphs/p1_42.png",
    "baseline": 99.0
-  },
-  {
-   "char": "p",
-   "file": "glyphs/p1_44.png",
-   "baseline": 81.0
   },
   {
    "char": "n",
@@ -40,11 +30,6 @@
    "char": "f",
    "file": "glyphs/p1_51.png",
    "baseline": 90.0
-  },
-  {
-   "char": "e",
-   "file": "glyphs/p1_52.png",
-   "baseline": 58.0
   },
   {
    "char": "μ",
@@ -95,11 +80,6 @@
    "char": "y",
    "file": "glyphs/p1_80.png",
    "baseline": 64.0
-  },
-  {
-   "char": ")",
-   "file": "glyphs/p1_81.png",
-   "baseline": 122.0
   },
   {
    "char": "μ",
@@ -170,11 +150,6 @@
    "char": "(",
    "file": "glyphs/p1_108.png",
    "baseline": 112.0
-  },
-  {
-   "char": "0",
-   "file": "glyphs/p1_109.png",
-   "baseline": 63.0
   },
   {
    "char": ")",
@@ -322,11 +297,6 @@
    "baseline": 59.0
   },
   {
-   "char": "1",
-   "file": "glyphs/p1_195.png",
-   "baseline": 82.0
-  },
-  {
    "char": "6",
    "file": "glyphs/p1_203.png",
    "baseline": 86.0
@@ -377,16 +347,6 @@
    "baseline": 51.0
   },
   {
-   "char": "th",
-   "file": "glyphs/p1_225.png",
-   "baseline": 86.0
-  },
-  {
-   "char": "e",
-   "file": "glyphs/p1_226.png",
-   "baseline": 45.0
-  },
-  {
    "char": "c",
    "file": "glyphs/p1_230.png",
    "baseline": 36.0
@@ -395,11 +355,6 @@
    "char": "V",
    "file": "glyphs/p1_234.png",
    "baseline": 80.0
-  },
-  {
-   "char": "ar",
-   "file": "glyphs/p1_235.png",
-   "baseline": 53.0
   },
   {
    "char": "(",
@@ -547,16 +502,6 @@
    "baseline": 112.0
   },
   {
-   "char": "at",
-   "file": "glyphs/p1_337.png",
-   "baseline": 116.0
-  },
-  {
-   "char": "Y",
-   "file": "glyphs/p1_338.png",
-   "baseline": 101.0
-  },
-  {
    "char": "fa",
    "file": "glyphs/p1_339.png",
    "baseline": 105.0
@@ -620,16 +565,6 @@
    "char": "1",
    "file": "glyphs/p1_368.png",
    "baseline": 100.0
-  },
-  {
-   "char": "7",
-   "file": "glyphs/p1_369.png",
-   "baseline": 97.0
-  },
-  {
-   "char": "5",
-   "file": "glyphs/p1_370.png",
-   "baseline": 70.0
   },
   {
    "char": ")",
@@ -697,11 +632,6 @@
    "baseline": 72.0
   },
   {
-   "char": "he",
-   "file": "glyphs/p1_408.png",
-   "baseline": 107.0
-  },
-  {
    "char": "t",
    "file": "glyphs/p1_418.png",
    "baseline": 78.0
@@ -710,11 +640,6 @@
    "char": "i",
    "file": "glyphs/p1_428.png",
    "baseline": 66.0
-  },
-  {
-   "char": "4",
-   "file": "glyphs/p1_438.png",
-   "baseline": 100.0
   },
   {
    "char": "Y",
@@ -747,24 +672,9 @@
    "baseline": 42.0
   },
   {
-   "char": "y",
-   "file": "glyphs/p1_449.png",
-   "baseline": 89.0
-  },
-  {
-   "char": "y",
-   "file": "glyphs/p1_450.png",
-   "baseline": 69.0
-  },
-  {
    "char": "3",
    "file": "glyphs/p1_452.png",
    "baseline": 69.0
-  },
-  {
-   "char": "ed",
-   "file": "glyphs/p1_455.png",
-   "baseline": 103.0
   },
   {
    "char": "y",
@@ -837,11 +747,6 @@
    "baseline": 54.5
   },
   {
-   "char": "Y",
-   "file": "glyphs/p1_484.png",
-   "baseline": 116.0
-  },
-  {
    "char": "1",
    "file": "glyphs/p1_487.png",
    "baseline": 100.0
@@ -877,16 +782,6 @@
    "baseline": 65.0
   },
   {
-   "char": ")",
-   "file": "glyphs/p1_496.png",
-   "baseline": 102.0
-  },
-  {
-   "char": "p",
-   "file": "glyphs/p1_498.png",
-   "baseline": 57.0
-  },
-  {
    "char": "1",
    "file": "glyphs/p1_500.png",
    "baseline": 79.0
@@ -912,11 +807,6 @@
    "baseline": 88.0
   },
   {
-   "char": "be",
-   "file": "glyphs/p2_34.png",
-   "baseline": 109.0
-  },
-  {
    "char": "the",
    "file": "glyphs/p2_35.png",
    "baseline": 88.0
@@ -927,29 +817,14 @@
    "baseline": 130.0
   },
   {
-   "char": "les",
-   "file": "glyphs/p2_39.png",
-   "baseline": 99.0
-  },
-  {
    "char": "dollar",
    "file": "glyphs/p2_41.png",
    "baseline": 107.0
   },
   {
-   "char": "let",
-   "file": "glyphs/p2_49.png",
-   "baseline": 109.0
-  },
-  {
    "char": "C",
    "file": "glyphs/p2_50.png",
    "baseline": 65.0
-  },
-  {
-   "char": "∈",
-   "file": "glyphs/p2_51.png",
-   "baseline": 78.0
   },
   {
    "char": "{",
@@ -992,24 +867,9 @@
    "baseline": 86.0
   },
   {
-   "char": "3",
-   "file": "glyphs/p2_103.png",
-   "baseline": 65.0
-  },
-  {
    "char": "C",
    "file": "glyphs/p2_106.png",
    "baseline": 67.0
-  },
-  {
-   "char": "2",
-   "file": "glyphs/p2_112.png",
-   "baseline": 90.0
-  },
-  {
-   "char": "3",
-   "file": "glyphs/p2_118.png",
-   "baseline": 65.0
   },
   {
    "char": "B",
@@ -1022,24 +882,9 @@
    "baseline": 86.0
   },
   {
-   "char": ")",
-   "file": "glyphs/p2_139.png",
-   "baseline": 102.0
-  },
-  {
-   "char": "X",
-   "file": "glyphs/p2_159.png",
-   "baseline": 81.0
-  },
-  {
    "char": "0",
    "file": "glyphs/p2_161.png",
    "baseline": 75.0
-  },
-  {
-   "char": "e",
-   "file": "glyphs/p2_169.png",
-   "baseline": 46.0
   },
   {
    "char": "0",
@@ -1047,39 +892,9 @@
    "baseline": 61.0
   },
   {
-   "char": "the",
-   "file": "glyphs/p2_181.png",
-   "baseline": 94.0
-  },
-  {
    "char": "f",
    "file": "glyphs/p2_183.png",
    "baseline": 74.0
-  },
-  {
-   "char": "T",
-   "file": "glyphs/p2_185.png",
-   "baseline": 78.0
-  },
-  {
-   "char": "g",
-   "file": "glyphs/p2_191.png",
-   "baseline": 66.0
-  },
-  {
-   "char": "(",
-   "file": "glyphs/p2_204.png",
-   "baseline": 98.0
-  },
-  {
-   "char": "X",
-   "file": "glyphs/p2_205.png",
-   "baseline": 103.0
-  },
-  {
-   "char": ")",
-   "file": "glyphs/p2_206.png",
-   "baseline": 134.0
   },
   {
    "char": "=",
@@ -1092,34 +907,14 @@
    "baseline": 103.0
   },
   {
-   "char": "(",
-   "file": "glyphs/p2_212.png",
-   "baseline": 96.0
-  },
-  {
    "char": "X",
    "file": "glyphs/p2_214.png",
    "baseline": 103.0
   },
   {
-   "char": "0",
-   "file": "glyphs/p2_217.png",
-   "baseline": 73.0
-  },
-  {
-   "char": "|",
-   "file": "glyphs/p2_220.png",
-   "baseline": 130.0
-  },
-  {
    "char": "P",
    "file": "glyphs/p2_221.png",
    "baseline": 101.0
-  },
-  {
-   "char": "(",
-   "file": "glyphs/p2_222.png",
-   "baseline": 103.0
   },
   {
    "char": "2",
@@ -1167,21 +962,6 @@
    "baseline": 98.0
   },
   {
-   "char": "2",
-   "file": "glyphs/p2_265.png",
-   "baseline": 70.0
-  },
-  {
-   "char": "0",
-   "file": "glyphs/p2_267.png",
-   "baseline": 75.0
-  },
-  {
-   "char": "9",
-   "file": "glyphs/p2_268.png",
-   "baseline": 94.0
-  },
-  {
    "char": "1",
    "file": "glyphs/p2_269.png",
    "baseline": 80.0
@@ -1205,11 +985,6 @@
    "char": "4",
    "file": "glyphs/p2_276.png",
    "baseline": 84.0
-  },
-  {
-   "char": "×",
-   "file": "glyphs/p2_278.png",
-   "baseline": 45.0
   },
   {
    "char": "+",
@@ -1262,24 +1037,9 @@
    "baseline": 97.0
   },
   {
-   "char": "(",
-   "file": "glyphs/p2_313.png",
-   "baseline": 103.0
-  },
-  {
    "char": "X",
    "file": "glyphs/p2_314.png",
    "baseline": 95.0
-  },
-  {
-   "char": "5",
-   "file": "glyphs/p2_315.png",
-   "baseline": 86.0
-  },
-  {
-   "char": ")",
-   "file": "glyphs/p2_322.png",
-   "baseline": 113.0
   },
   {
    "char": ")",
@@ -1312,34 +1072,9 @@
    "baseline": 66.0
   },
   {
-   "char": "1",
-   "file": "glyphs/p3_12.png",
-   "baseline": 97.0
-  },
-  {
-   "char": ")",
-   "file": "glyphs/p3_13.png",
-   "baseline": 102.0
-  },
-  {
-   "char": "be",
-   "file": "glyphs/p3_14.png",
-   "baseline": 87.0
-  },
-  {
-   "char": "the",
-   "file": "glyphs/p3_15.png",
-   "baseline": 120.0
-  },
-  {
    "char": "F",
    "file": "glyphs/p3_46.png",
    "baseline": 99.0
-  },
-  {
-   "char": ")",
-   "file": "glyphs/p3_48.png",
-   "baseline": 102.0
   },
   {
    "char": "1",
@@ -1372,16 +1107,6 @@
    "baseline": 121.0
   },
   {
-   "char": "0",
-   "file": "glyphs/p3_72.png",
-   "baseline": 60.0
-  },
-  {
-   "char": "other",
-   "file": "glyphs/p3_74.png",
-   "baseline": 76.0
-  },
-  {
    "char": "e",
    "file": "glyphs/p3_87.png",
    "baseline": 52.0
@@ -1395,11 +1120,6 @@
    "char": "A",
    "file": "glyphs/p3_91.png",
    "baseline": 85.0
-  },
-  {
-   "char": "π",
-   "file": "glyphs/p3_110.png",
-   "baseline": 76.0
   },
   {
    "char": "R",
@@ -1425,11 +1145,6 @@
    "char": "the",
    "file": "glyphs/p3_149.png",
    "baseline": 93.0
-  },
-  {
-   "char": "e",
-   "file": "glyphs/p3_151.png",
-   "baseline": 49.0
   },
   {
    "char": "(",
@@ -1460,11 +1175,6 @@
    "char": ")",
    "file": "glyphs/p3_160.png",
    "baseline": 102.0
-  },
-  {
-   "char": "the",
-   "file": "glyphs/p3_183.png",
-   "baseline": 113.0
   },
   {
    "char": "h",
@@ -1507,11 +1217,6 @@
    "baseline": 111.0
   },
   {
-   "char": "c",
-   "file": "glyphs/p3_211.png",
-   "baseline": 46.0
-  },
-  {
    "char": "E",
    "file": "glyphs/p3_212.png",
    "baseline": 85.0
@@ -1520,11 +1225,6 @@
    "char": "(",
    "file": "glyphs/p3_213.png",
    "baseline": 86.0
-  },
-  {
-   "char": "x",
-   "file": "glyphs/p3_214.png",
-   "baseline": 59.0
   },
   {
    "char": ")",
@@ -1575,11 +1275,6 @@
    "char": "∞",
    "file": "glyphs/p3_235.png",
    "baseline": 52.0
-  },
-  {
-   "char": "(",
-   "file": "glyphs/p3_237.png",
-   "baseline": 85.0
   },
   {
    "char": ")",
@@ -1652,11 +1347,6 @@
    "baseline": 65.0
   },
   {
-   "char": "E",
-   "file": "glyphs/p3_267.png",
-   "baseline": 107.0
-  },
-  {
    "char": "(",
    "file": "glyphs/p3_269.png",
    "baseline": 107.0
@@ -1692,11 +1382,6 @@
    "baseline": 123.30000000000001
   },
   {
-   "char": "1",
-   "file": "glyphs/p3_284.png",
-   "baseline": 79.0
-  },
-  {
    "char": ")",
    "file": "glyphs/p3_289.png",
    "baseline": 102.0
@@ -1710,11 +1395,6 @@
    "char": "1",
    "file": "glyphs/p3_295.png",
    "baseline": 79.0
-  },
-  {
-   "char": "1",
-   "file": "glyphs/p3_297.png",
-   "baseline": 100.0
   },
   {
    "char": "[",
@@ -1867,11 +1547,6 @@
    "baseline": 105.0
   },
   {
-   "char": "y",
-   "file": "glyphs/p4_24.png",
-   "baseline": 80.0
-  },
-  {
    "char": "dy",
    "file": "glyphs/p4_27.png",
    "baseline": 189.0
@@ -1887,39 +1562,14 @@
    "baseline": 73.0
   },
   {
-   "char": "3",
-   "file": "glyphs/p4_35.png",
-   "baseline": 82.0
-  },
-  {
    "char": "k",
    "file": "glyphs/p4_40.png",
    "baseline": 102.0
   },
   {
-   "char": "k",
-   "file": "glyphs/p4_42.png",
-   "baseline": 107.0
-  },
-  {
    "char": "2",
    "file": "glyphs/p4_56.png",
    "baseline": 70.0
-  },
-  {
-   "char": "0",
-   "file": "glyphs/p4_100.png",
-   "baseline": 75.0
-  },
-  {
-   "char": "0",
-   "file": "glyphs/p4_116.png",
-   "baseline": 73.0
-  },
-  {
-   "char": "4",
-   "file": "glyphs/p4_117.png",
-   "baseline": 100.0
   },
   {
    "char": ")",
@@ -1942,11 +1592,6 @@
    "baseline": 73.0
   },
   {
-   "char": "0",
-   "file": "glyphs/p4_145.png",
-   "baseline": 75.0
-  },
-  {
    "char": "b",
    "file": "glyphs/p4_159.png",
    "baseline": 131.0
@@ -1967,12 +1612,6 @@
    "char": "m",
    "file": "glyphs/syn_006d_0.png",
    "baseline": 51.0,
-   "synthetic": true
-  },
-  {
-   "char": "u",
-   "file": "glyphs/syn_0075_1.png",
-   "baseline": 57.0,
    "synthetic": true
   },
   {
@@ -2048,12 +1687,6 @@
    "synthetic": true
   },
   {
-   "char": "q",
-   "file": "glyphs/syn_0071_3.png",
-   "baseline": 57.0,
-   "synthetic": true
-  },
-  {
    "char": "O",
    "file": "glyphs/syn_004f_0.png",
    "baseline": 59.0,
@@ -2063,12 +1696,6 @@
    "char": "O",
    "file": "glyphs/syn_004f_1.png",
    "baseline": 69.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
-   "file": "glyphs/syn_004f_2.png",
-   "baseline": 63.0,
    "synthetic": true
   },
   {
@@ -2103,12 +1730,6 @@
   },
   {
    "char": "O",
-   "file": "glyphs/syn_004f_8.png",
-   "baseline": 75.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
    "file": "glyphs/syn_004f_9.png",
    "baseline": 75.0,
    "synthetic": true
@@ -2139,38 +1760,14 @@
   },
   {
    "char": "O",
-   "file": "glyphs/syn_004f_14.png",
-   "baseline": 60.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
    "file": "glyphs/syn_004f_15.png",
    "baseline": 59.0,
    "synthetic": true
   },
   {
    "char": "O",
-   "file": "glyphs/syn_004f_16.png",
-   "baseline": 75.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
-   "file": "glyphs/syn_004f_17.png",
-   "baseline": 73.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
    "file": "glyphs/syn_004f_18.png",
    "baseline": 73.0,
-   "synthetic": true
-  },
-  {
-   "char": "O",
-   "file": "glyphs/syn_004f_19.png",
-   "baseline": 75.0,
    "synthetic": true
   },
   {
@@ -2213,6 +1810,60 @@
    "char": "I",
    "file": "glyphs/syn_0049_6.png",
    "baseline": 96.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_0.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_1.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_2.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_3.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_4.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "x",
+   "file": "glyphs/syn_0078_5.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "g",
+   "file": "glyphs/syn_0067_0.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "g",
+   "file": "glyphs/syn_0067_1.png",
+   "baseline": 50.0,
+   "synthetic": true
+  },
+  {
+   "char": "g",
+   "file": "glyphs/syn_0067_2.png",
+   "baseline": 50.0,
    "synthetic": true
   }
  ],

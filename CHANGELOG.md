@@ -2,8 +2,13 @@
 
 What changed in each version. Only the latest release is kept for download.
 
+## v0.2.7 (18 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.7)
+- Default handwriting cleaned: 79 badly cut samples removed (an "e" with a stray dash, letters glued to a neighbour, leftover notebook lines, blobs). Words like "et", "Intervalles", "les", "Maths" now read cleanly.
+- `x` and `g` are built from the writer's own `X` and `9` when no clean sample exists, instead of falling back to a font.
+- `%` is built from the writer's own small loops and a short slash, tight like a real one, instead of a font sign with its circles far apart.
+
 ## v0.2.6 (18 Nov 2026)
-[Code and examples at this version](../../tree/v0.2.6)
 - Punch holes are real cut-outs: the table shows through them and the paper edge is slightly shadowed. No more bright ring that looked like light coming out of the hole.
 - New notebook and lined example photos in the README.
 

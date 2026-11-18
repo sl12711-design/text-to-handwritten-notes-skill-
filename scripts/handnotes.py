@@ -255,10 +255,16 @@ class HandSource:
             return d[0], d[1]
         return None
 
+    def built_percent(self, ch):
+        """% not learned: build it from the writer's own small o's and a short slash."""
+        return ch == "%" and "%" not in self.glyphs and ("o" in self.glyphs or "0" in self.glyphs)
+
     def has(self, ch):
-        return ch in self.glyphs or self.accented(ch) is not None
+        return ch in self.glyphs or self.accented(ch) is not None or self.built_percent(ch)
 
     def metrics(self, ch, xh):
+        if self.built_percent(ch):
+            return self.width(ch, xh), xh * 1.5, xh * 0.05
         acc = self.accented(ch)
         if acc:
             return self.metrics(acc[0], xh)
@@ -269,6 +275,8 @@ class HandSource:
         return self.width(ch, xh), base * s, max(0, (img.height - base) * s)
 
     def width(self, ch, xh):
+        if self.built_percent(ch):
+            return xh * 1.05 + xh * self.gap
         acc = self.accented(ch)
         if acc:
             return self.width(acc[0], xh)
@@ -277,7 +285,32 @@ class HandSource:
         avg = sum(img.width for img, _ in self.glyphs[ch]) / len(self.glyphs[ch])
         return avg * xh / self.xh_px + xh * self.gap
 
+    def percent(self, xh, rng):
+        """A real % is compact: two small loops hugging a short slash."""
+        pad = int(xh * 0.8) + 4
+        W0, top = xh * 1.05, xh * 1.5            # glyph box: digit height
+        m = Image.new("L", (int(W0) + 2 * pad, int(top + xh * 0.1) + 2 * pad), 0)
+        bx, by = pad, pad + top
+        w = max(1, int(round(xh * 0.12)))
+        sl = rng.uniform(-0.04, 0.04) * xh
+        d = ImageDraw.Draw(m)
+        d.line([(bx + W0 * 0.12 + sl, by + xh * 0.02), (bx + W0 * 0.5, by - top * 0.52),
+                (bx + W0 * 0.88 + sl, by - top * 0.98)], fill=255, width=w, joint="curve")
+        src = self.glyphs.get("o") or self.glyphs.get("0")
+        for cx, cy in ((0.2, 0.78), (0.8, 0.2)):     # top-left loop, bottom-right loop
+            img, _ = rng.choice(src)
+            bb = img.getbbox() or (0, 0, img.width, img.height)
+            img = img.crop(bb)
+            k = xh * 0.52 / max(1, img.height)
+            g = img.resize((max(1, int(img.width * k)), max(1, int(img.height * k))), Image.LANCZOS)
+            x = bx + W0 * cx - g.width / 2 + rng.gauss(0, xh * 0.02)
+            y = by - top * cy - g.height / 2 + rng.gauss(0, xh * 0.02)
+            m.paste(ImageChops.lighter(m.crop((int(x), int(y), int(x) + g.width, int(y) + g.height)), g), (int(x), int(y)))
+        return m, bx, by, W0 + xh * self.gap
+
     def glyph(self, ch, xh, rng):
+        if self.built_percent(ch):
+            return self.percent(xh, rng)
         acc = self.accented(ch)
         if acc:
             m, bx, by, adv = self.glyph(acc[0], xh, rng)
@@ -2062,6 +2095,17 @@ def build_hand(work, labels_path, out_dir, target=50.0):
     for n, g in enumerate(by.get("v", [])):
         if "w" not in by:
             add("w", twice(load(g), 0.7), g["baseline"], n)
+    for n, g in enumerate(by.get("X", [])):  # x: the writer's own X at x-height
+        if "x" not in by:
+            im = load(g)
+            k = target * 1.0 / max(1, im.height)
+            add("x", im.resize((max(1, int(im.width * k)), int(target))), target, n)
+    for n, g in enumerate(by.get("9", [])):  # g: the writer's 9, its loop sitting on the line, tail below
+        if "g" not in by:
+            im = load(g)
+            k = target * 1.75 / max(1, im.height)
+            im = im.resize((max(1, int(im.width * k)), max(1, int(im.height * k))))
+            add("g", im, target * 1.0, n)
     for src_c, dst_c, fn in (("p", "q", ImageOps.mirror), ("0", "O", None), ("l", "I", None)):
         for n, g in enumerate(by.get(src_c, [])):
             if dst_c not in by:
