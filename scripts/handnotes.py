@@ -1554,13 +1554,24 @@ def photoize(page, rng, mm):
     tint = np.array([rng.uniform(0.94, 1.02), rng.uniform(0.95, 1.0), rng.uniform(0.9, 1.04)], dtype=np.float32)
     a = a * tint * 0.93 + 6
     sheet = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
-    # punch holes on the left
-    d = ImageDraw.Draw(sheet)
+    # punch holes on the left: real cut-outs that show the table under the sheet (no bright rim)
     r = 3 * mm
+    holes = []
     for fy in (0.12, 0.5, 0.88):
-        cx, cy = 9 * mm + rng.uniform(-2, 2), H * fy + rng.uniform(-8, 8)
-        d.ellipse((cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3), fill=(205, 205, 200))
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(38, 40, 44))
+        holes.append((9 * mm + rng.uniform(-2, 2), H * fy + rng.uniform(-8, 8)))
+    ss = 4  # draw the cut at 4x and shrink, for a clean anti-aliased edge
+    hm = Image.new("L", (W, H), 0)
+    for cx, cy in holes:
+        x0, y0 = int(cx - r - 4), int(cy - r - 4)
+        big = Image.new("L", ((int(2 * r) + 8) * ss,) * 2, 0)
+        ImageDraw.Draw(big).ellipse(((cx - r - x0) * ss, (cy - r - y0) * ss,
+                                     (cx + r - x0) * ss, (cy + r - y0) * ss), fill=255)
+        hm.paste(big.resize((int(2 * r) + 8,) * 2, Image.LANCZOS), (x0, y0))
+    # the paper just around the cut is a little darker (thickness of the sheet, slight shadow)
+    rim = np.asarray(hm.filter(ImageFilter.GaussianBlur(2.2)), dtype=np.float32) / 255.0
+    sa = np.asarray(sheet, dtype=np.float32) * (1 - 0.35 * np.clip(rim * 2, 0, 1))[..., None]
+    sheet = Image.fromarray(np.clip(sa, 0, 255).astype(np.uint8))
+    sheet_mask = ImageChops.invert(hm)
     # place on a dark background, tilted, with perspective
     pad = int(0.07 * W)
     bgc = np.array([rng.uniform(25, 60)] * 3) + nr.normal(0, 4, 3)
@@ -1571,7 +1582,7 @@ def photoize(page, rng, mm):
     ImageDraw.Draw(shadow).rectangle((pad + 10, pad + 14, pad + W + 14, pad + H + 16), fill=140)
     shadow = shadow.filter(ImageFilter.GaussianBlur(18))
     bg = Image.composite(Image.new("RGB", bg.size, (10, 10, 12)), bg, shadow)
-    bg.paste(sheet, (pad, pad))
+    bg.paste(sheet, (pad, pad), sheet_mask)
     CW, CH = bg.size
     j = lambda k: rng.uniform(-k, k) * W
     src = [(pad, pad), (pad + W, pad), (pad + W, pad + H), (pad, pad + H)]

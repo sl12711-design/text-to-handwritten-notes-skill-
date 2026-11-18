@@ -2,8 +2,12 @@
 
 What changed in each version. Only the latest release is kept for download.
 
+## v0.2.6 (18 Nov 2026)
+[Code and examples at this version](../../tree/v0.2.6)
+- Punch holes are real cut-outs: the table shows through them and the paper edge is slightly shadowed. No more bright ring that looked like light coming out of the hole.
+- New notebook and lined example photos in the README.
+
 ## v0.2.5 (17 Nov 2026)
-[Code and examples at this version](../../tree/v0.2.5)
 - Squared paper is the default in every case: with the default handwriting, with your own handwriting, or with only an assignment to write out. The paper in your photos no longer changes it.
 - Darker, fuller ballpoint ink on the notebook photo: faint parts of the letters no longer look faded.
 

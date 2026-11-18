@@ -20,7 +20,7 @@ It works as an [Agent Skill](https://agentskills.io) in Claude, ChatGPT, Codex a
 
 | Notebook photo (default) | iPad | Lined paper |
 |---|---|---|
-| ![Notebook photo](docs/v0.2.5-output-notebook.jpg) | ![iPad page](docs/v0.2.4-output-ipad.jpg) | ![Lined notebook](docs/v0.2.5-output-lines.jpg) |
+| ![Notebook photo](docs/v0.2.6-output-notebook.jpg) | ![iPad page](docs/v0.2.4-output-ipad.jpg) | ![Lined notebook](docs/v0.2.6-output-lines.jpg) |
 
 ## How to use it
 
