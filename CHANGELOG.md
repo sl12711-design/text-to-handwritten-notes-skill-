@@ -1,6 +1,13 @@
 # Changelog
 
-What changed in each version. Only the latest release is kept for download.
+What changed in each version.
+
+## v0.3.0 (Enhanced Fork)
+- **300 DPI High-Contrast Tablet Pipeline:** Upgraded A4 output from 150 DPI to 300 DPI (`2480×3508`) with high-contrast digital ink alpha recovery and `resolution=300, quality=95, subsampling=0` PDF export. Fixed Pillow 12 `KeyError: 'JPEG'` via `Image.init()` and Windows UTF-8 BOM `\ufeff` handling.
+- **Lined Paper Default & 2D Anti-Overlap:** Set `--style ipad --paper lines` as default with light-gray horizontal ruled lines, subtle left margin line, baseline snapping, and 2D x-span collision guard between adjacent lines.
+- **Organic Per-Character & Per-Symbol Jitter (`--jitter` / `--no-jitter`):** Added `deform_glyph()` (subtle per-glyph aspect ratio, shear/slant, rotation, and `3×3` elastic curve distortion) plus randomized micro-angles/curvatures on drawn symbols (`\sum`, `\prod`, `\implies`, `\to`, `\approx`, `\leq`, `\geq`, `/`, `()`, `[]`, `\because`, `\therefore`, `\sqrt{}`, fraction bars).
+- **Toggleable Scratch-Outs (`--scratch` / `--no-scratch`, `--scratch-rate`):** Optional realistic crossed-out false starts per page while keeping real answers unobstructed.
+- **Compact Math Note Rules in `SKILL.md`:** Added Rules 1–3 for dense, direct mathematical exposition and strict 62-character glyph quality checks, plus automatic `hands/my-hand` (gitignored) -> `hands/default` resolution.
 
 ## v0.2.7 (18 Nov 2026)
 [Code and examples at this version](../../tree/v0.2.7)

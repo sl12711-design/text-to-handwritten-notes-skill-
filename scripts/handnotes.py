@@ -52,12 +52,12 @@ FONTS = {
     "playpen": "PlaypenSans.ttf",
 }
 INKS = {
-    "black": (30, 30, 34),
-    "blue": (28, 78, 196),
-    "red": (204, 56, 50),
-    "green": (32, 128, 72),
-    "purple": (112, 62, 170),
-    "pencil": (92, 92, 98),
+    "black": (18, 18, 22),
+    "blue": (24, 72, 192),
+    "red": (200, 48, 44),
+    "green": (28, 122, 68),
+    "purple": (106, 56, 166),
+    "pencil": (82, 82, 88),
 }
 HIGHLIGHTS = {
     "yellow": (255, 238, 70),
@@ -66,17 +66,25 @@ HIGHLIGHTS = {
     "blue": (160, 215, 255),
     "orange": (255, 196, 110),
 }
-PAGES = {  # pixels at 150 dpi, physical width in mm
-    "a4": ((1240, 1754), 210),
-    "letter": ((1275, 1650), 216),
-    "ipad": ((1536, 2048), 210),
-    "ipad-landscape": ((2048, 1536), 280),
+PAGES = {  # pixels at 300 dpi, physical width in mm
+    "a4": ((2480, 3508), 210),
+    "letter": ((2550, 3300), 216),
+    "ipad": ((2480, 3306), 210),
+    "ipad-landscape": ((3306, 2480), 280),
 }
 SIZES = {"small": 0.82, "medium": 1.0, "large": 1.22}
-DRAWN = {"∩": 1.2, "∪": 1.2, "∅": 1.25, "∈": 1.15, "⇒": 2.4, "←": 2.3,  # advance in x-heights
-         "∀": 1.25, "∃": 1.05, "∉": 1.15, "⊂": 1.15, "⊆": 1.15, "≡": 1.15, "→": 2.1, "⇔": 2.7,
-         "↦": 2.2, "∘": 0.8, "∇": 1.3, "⋯": 1.7}
-SYM_ASC = {"∀": 1.45, "∃": 1.45, "∇": 1.45, "∅": 1.15, "⊆": 1.1}
+DRAWN = {"∩": 1.1, "∪": 1.1, "∅": 1.2, "∈": 1.05, "⇒": 2.1, "←": 2.0,  # advance in x-heights
+         "∀": 1.2, "∃": 1.0, "∉": 1.1, "⊂": 1.1, "⊆": 1.1, "≡": 1.05, "→": 1.85, "⇔": 2.4,
+         "↦": 1.95, "∘": 0.75, "∇": 1.2, "⋯": 1.5,
+         "=": 1.0, "−": 0.95, "-": 0.72, "+": 0.96, "<": 0.98, ">": 0.98, "∞": 1.34,
+         "≈": 1.05, "≠": 1.05, "±": 1.05, "∓": 1.05,
+         "×": 0.95, "≤": 1.05, "≥": 1.05, "∴": 1.15, "∵": 1.15, "~": 1.0, ".": 0.34,
+         "/": 0.64, "(": 0.48, ")": 0.48, "[": 0.50, "]": 0.50, "|": 0.38, "{": 0.56, "}": 0.56,
+         "∑": 1.18, "Σ": 1.18, "∏": 1.15}
+SYM_ASC = {"∀": 1.45, "∃": 1.45, "∇": 1.45, "∅": 1.15, "⊆": 1.1,
+           "/": 1.38, "(": 1.44, ")": 1.44, "[": 1.44, "]": 1.44, "|": 1.44, "{": 1.46, "}": 1.46,
+           "∑": 1.38, "Σ": 1.38, "∏": 1.38}
+SYM_DESC = {"/": 0.18, "(": 0.24, ")": 0.24, "[": 0.24, "]": 0.24, "|": 0.24, "{": 0.26, "}": 0.26}
 SYSTEM_FALLBACKS = [  # last resort for Greek and rare symbols (not handwritten, but no empty boxes)
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/dejavu/DejaVuSans.ttf",
@@ -114,28 +122,85 @@ def wobble_points(p0, p1, amp, rng, n=None):
     return pts
 
 
-def warp_glyph(m, amp, rng, cells=3):
-    """Smooth random distortion so the same letter is never drawn twice the same."""
-    if amp <= 0.3:
+def warp_glyph(m, amp, rng, cells=4):
+    """Smooth random elastic distortion focused tightly on the active glyph ink box."""
+    if amp <= 0.25:
         return m
-    W, H = m.size
-    nx, ny = cells, cells
-    pts = [[(W * i / nx + (rng.gauss(0, amp) if 0 < i < nx else 0),
-             H * j / ny + (rng.gauss(0, amp) if 0 < j < ny else 0)) for i in range(nx + 1)] for j in range(ny + 1)]
+    bb = m.getbbox()
+    if not bb:
+        return m
+    bx0, by0, bx1, by1 = bb
+    gx0 = max(1, bx0 - 4)
+    gy0 = max(1, by0 - 4)
+    gx1 = min(m.width - 1, bx1 + 4)
+    gy1 = min(m.height - 1, by1 + 4)
+    if gx1 - gx0 < 6 or gy1 - gy0 < 6:
+        return m
+    xs_dst = [0] + [int(round(gx0 + (gx1 - gx0) * i / cells)) for i in range(cells + 1)] + [m.width]
+    ys_dst = [0] + [int(round(gy0 + (gy1 - gy0) * j / cells)) for j in range(cells + 1)] + [m.height]
+    # Deduplicate strictly monotonic grid coordinates
+    xs_u, ys_u = [xs_dst[0]], [ys_dst[0]]
+    for v in xs_dst[1:]:
+        if v > xs_u[-1]:
+            xs_u.append(v)
+    for v in ys_dst[1:]:
+        if v > ys_u[-1]:
+            ys_u.append(v)
+    nx, ny = len(xs_u) - 1, len(ys_u) - 1
+    if nx < 2 or ny < 2:
+        return m
+    pts = []
+    for j in range(ny + 1):
+        row = []
+        for i in range(nx + 1):
+            is_inner = (0 < i < nx) and (0 < j < ny)
+            dx = rng.gauss(0, amp) if is_inner else 0.0
+            dy = rng.gauss(0, amp) if is_inner else 0.0
+            row.append((xs_u[i] + dx, ys_u[j] + dy))
+        pts.append(row)
     mesh = []
     for j in range(ny):
         for i in range(nx):
-            box = (int(W * i / nx), int(H * j / ny), int(W * (i + 1) / nx), int(H * (j + 1) / ny))
+            box = (xs_u[i], ys_u[j], xs_u[i + 1], ys_u[j + 1])
             a, b, c, d = pts[j][i], pts[j + 1][i], pts[j + 1][i + 1], pts[j][i + 1]
             mesh.append((box, (a[0], a[1], b[0], b[1], c[0], c[1], d[0], d[1])))
     return m.transform(m.size, Image.MESH, mesh, Image.BICUBIC)
 
 
+def deform_glyph(m, bx, by, gx, mess, rng, extra_deg=0.0):
+    """Apply subtle per-character aspect-ratio, slant/shear, rotation, and smooth curve jitter
+    so repeated letters/digits have natural human micro-differences while staying 100% sharp."""
+    jm = min(1.4, mess / 0.55)
+    if jm <= 1e-4 and abs(extra_deg) <= 1e-4:
+        return m
+    sx = max(0.90, min(1.11, 1.0 + rng.gauss(0, 0.048 * jm))) if jm > 0 else 1.0
+    sy = max(0.91, min(1.10, 1.0 + rng.gauss(0, 0.042 * jm))) if jm > 0 else 1.0
+    sh = max(-0.12, min(0.12, rng.gauss(0, 0.055 * jm))) if jm > 0 else 0.0
+    deg = (rng.gauss(0, 2.2 * jm) if jm > 0 else 0.0) + extra_deg
+    rad = math.radians(-deg)
+    cs, sn = math.cos(rad), math.sin(rad)
+    # Inverse affine mapping anchored strictly at (bx, by)
+    a0 = cs / sx + (sh * (-sn)) / (sx * sy)
+    a1 = sn / sx + (sh * cs) / (sx * sy)
+    a2 = bx - a0 * bx - a1 * by
+    b0 = -sn / sy
+    b1 = cs / sy
+    b2 = by - b0 * bx - b1 * by
+    m = m.transform(m.size, Image.AFFINE, (a0, a1, a2, b0, b1, b2), Image.BICUBIC)
+    if jm > 0:
+        m = warp_glyph(m, min(1.30, max(0.55, gx * 0.033 * jm)), rng, cells=3)
+    # Restore crisp alpha edge after bicubic resampling so strokes never blur
+    m = m.point(lambda v: max(0, min(255, int((v - 18) * 255 / 206))))
+    return m
+
+
 def pen_line(draw, pts, width):
-    draw.line(pts, fill=255, width=max(1, int(round(width))), joint="curve")
-    r = width / 2
-    for x, y in (pts[0], pts[-1]):
-        draw.ellipse((x - r, y - r, x + r, y + r), fill=255)
+    w_px = max(1, int(round(width)))
+    draw.line(pts, fill=255, width=w_px, joint="curve")
+    if w_px >= 3:
+        r = (w_px - 1) * 0.42
+        for x, y in (pts[0], pts[-1]):
+            draw.ellipse((x - r, y - r, x + r, y + r), fill=255)
 
 
 # --------------------------------------------------------------------------- glyph sources
@@ -223,7 +288,7 @@ class HandSource:
             img = Image.open(self.dir / g["file"]).convert("L")
             self.glyphs.setdefault(g["char"], []).append((img, g["baseline"]))
         self.fallback = fallback
-        self.gap = 0.1
+        self.gap = 0.04
         # whole words / letter pairs cut from real pages ("the", "he", "dollar") are used as one piece
         self.multi = sorted((k for k in self.glyphs if len(k) > 1), key=len, reverse=True)
 
@@ -283,7 +348,8 @@ class HandSource:
         if ch not in self.glyphs:
             return self.fallback.width(ch, xh)
         avg = sum(img.width for img, _ in self.glyphs[ch]) / len(self.glyphs[ch])
-        return avg * xh / self.xh_px + xh * self.gap
+        gp = 0.11 if ch.isdigit() else (0.08 if ch in "lI1" else self.gap)
+        return avg * xh / self.xh_px + xh * gp
 
     def percent(self, xh, rng):
         """A real % is compact: two small loops hugging a short slash."""
@@ -343,13 +409,17 @@ class HandSource:
         s = xh / self.xh_px
         w, h = max(1, int(img.width * s)), max(1, int(img.height * s))
         g = img.resize((w, h), Image.LANCZOS)
+        if s < 0.75:
+            boost = 1.38 if s < 0.48 else 1.20
+            g = g.point(lambda v, b=boost: min(255, int(v * b)))
         pad = int(xh * 0.8) + 4
         m = Image.new("L", (w + 2 * pad, h + 2 * pad), 0)
         m.paste(g, (pad, pad))
-        return m, pad, pad + base * s, w + xh * self.gap
+        gp = 0.11 if ch.isdigit() else (0.08 if ch in "lI1" else self.gap)
+        return m, pad, pad + base * s, w + xh * gp
 
     def space(self, xh):
-        return xh * 0.95
+        return xh * 0.62
 
 
 # --------------------------------------------------------------------------- iPad engine
@@ -381,20 +451,20 @@ def _thin(b):
             return I[1:-1, 1:-1].astype(bool)
 
 
-PENCIL_VERSION = "2"  # bump when pencil_stroke changes, so cached strokes are rebuilt
+PENCIL_VERSION = "4"  # bump when pencil_stroke changes, so cached strokes are rebuilt
 
 
 def pencil_stroke(img, width):
     """Learned letter (photo cut) -> one smooth stroke of even width, no faint or missing parts.
-    Works at 3x size so curves come out round and edges anti-aliased, then scales back."""
+    Works at 3x size with gentle closing so small loops in 4, 5, 8, e, a stay crisp and open."""
     K = 3
     a = np.asarray(img, dtype=np.float32) / 255.0
-    pad = int(width) + 3
+    pad = int(width) + 4
     a = np.pad(a, pad)
     big_img = Image.fromarray((a * 255).astype(np.uint8)).resize((a.shape[1] * K, a.shape[0] * K), Image.BICUBIC)
-    b = Image.fromarray(((np.asarray(big_img) > 18) * 255).astype(np.uint8))   # keep even the faintest pen
-    b = b.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.MinFilter(7))     # close pen gaps, keep loops open
-    b = b.filter(ImageFilter.GaussianBlur(K * 1.7))                            # round off the photo's jagged outline
+    b = Image.fromarray(((np.asarray(big_img) > 26) * 255).astype(np.uint8))
+    b = b.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))     # close micro-gaps while keeping inner loops open
+    b = b.filter(ImageFilter.GaussianBlur(K * 0.85))                            # smooth outline without melting counters shut
     sk = _thin(np.asarray(b) > 127)
     comps = _components(sk)
     if len(comps) > 1:  # photo specks would become dots: drop tiny pieces, keep real dots (i, j, :)
@@ -407,8 +477,8 @@ def pencil_stroke(img, width):
     r = max(1, int(round(width * K / 2)))
     for _ in range(r):
         st = st.filter(ImageFilter.MaxFilter(3))
-    st = st.filter(ImageFilter.GaussianBlur(r * 0.9))            # rounded ends, smooth sides
-    st = st.point(lambda v: max(0, min(255, int((v - 70) * 255 / 60))))
+    st = st.filter(ImageFilter.GaussianBlur(r * 0.72))            # crisp rounded stroke edges
+    st = st.point(lambda v: max(0, min(255, int((v - 62) * 255 / 55))))
     st = st.resize((st.width // K, st.height // K), Image.LANCZOS)  # back to size, anti-aliased
     return st.crop((pad, pad, st.width - pad, st.height - pad))
 
@@ -419,7 +489,7 @@ def PencilHandSource(hand):
     import copy
     import hashlib
     ph = copy.copy(hand)
-    w = max(2.0, hand.xh_px * 0.075)
+    w = max(2.6, hand.xh_px * 0.092)
     cache = Path(hand.dir) / "pencil"   # computed once, then reused (shipped for the default hand)
     try:
         cache.mkdir(exist_ok=True)
@@ -569,7 +639,16 @@ def make_paper(kind, size, line_h, first_base, margin_x, mm, rng):
             x += step
         mx = margin_x - 0.5 * step
         d.line([(mx, 0), (mx, H)], fill=(222, 120, 128), width=2)
-    elif kind in ("lines", "college"):
+    elif kind == "lines":
+        lw = max(1, int(round(0.15 * mm)))
+        col = (212, 214, 220)  # clean tablet light-gray ruled lines
+        y = first_base
+        while y < H - 6 * mm:
+            d.line([(0, int(round(y))), (W, int(round(y)))], fill=col, width=lw)
+            y += line_h
+        mx = int(round(margin_x - 3.0 * mm))  # subtle tablet margin line
+        d.line([(mx, 0), (mx, H)], fill=(204, 206, 214), width=lw)
+    elif kind == "college":
         col = (170, 196, 232)  # notebook blue
         y = first_base
         while y < H - line_h * 0.3:
@@ -620,6 +699,7 @@ MATH_SYMBOLS = {
     "mid": "|", "vert": "|", "|": "‖", "{": "{", "}": "}", "%": "%", "#": "#", "&": "&",
     "_": "_", "neg": "¬", "lnot": "¬", "wedge": "∧", "land": "∧", "vee": "∨", "lor": "∨",
     "propto": "∝", "perp": "⊥", "angle": "∠", "degree": "°", "ell": "ℓ",
+    "therefore": "∴", "because": "∵",
 }
 MATH_FUNCS = {"sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arctan", "sinh",
               "cosh", "tanh", "log", "ln", "lg", "exp", "max", "min", "sup", "inf", "det", "dim",
@@ -627,7 +707,7 @@ MATH_FUNCS = {"sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arc
 BIG_OPS = {"sum": "∑", "prod": "∏", "int": "∫", "iint": "∬", "oint": "∮", "bigcup": "∪",
            "bigcap": "∩", "lim": "lim", "limsup": "lim sup", "liminf": "lim inf"}
 MATH_SPACES = {",": 0.25, ":": 0.35, ";": 0.45, " ": 0.45, "quad": 1.4, "qquad": 2.8, "!": -0.2}
-SPACED = set("=<>+−±∓×÷·≤≥≠≈≡~∈∉⊂⊆∪∩→←⇒⇔↦∝∧∨")
+SPACED = set("=<>+−±∓×÷·≤≥≠≈≡~∈∉⊂⊆∪∩→←⇒⇔↦∝∧∨∴∵")
 TALL = set("bdfhkltABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()[]{}|/∑∏∫∂δθλ")
 SUPMAP = dict(zip("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱᶜᵃᵇᵈᵉᶠᵍʰʲᵏˡᵐᵒᵖʳˢᵗᵘᵛʷˣʸᶻᵀ",
                   "0123456789+-=()nicabdefghjklmoprstuvwxyzT"))
@@ -795,10 +875,11 @@ class MathLayout:
     def __init__(self, metrics, display=False):
         self.cm = metrics  # (char, xh) -> (advance, ascent, descent)
         self.display = display
+        self.root_xh = None
 
     def char(self, c, xh, level):
         if c in DRAWN:
-            w, a, d = DRAWN[c] * xh, SYM_ASC.get(c, 1.05) * xh, 0
+            w, a, d = DRAWN[c] * xh, SYM_ASC.get(c, 1.05) * xh, SYM_DESC.get(c, 0.0) * xh
             box = MBox(w, a, d, [("sym", c, 0, 0, xh)])
         else:
             w, a, d = self.cm(c, xh)
@@ -820,6 +901,9 @@ class MathLayout:
         return hcat(boxes)
 
     def lay(self, n, xh, level=0):
+        if level == 0 and self.root_xh is None:
+            self.root_xh = xh
+        min_sub = (self.root_xh or xh) * 0.66
         kind = n[0]
         if kind == "group":
             kids, boxes = n[1], []
@@ -846,7 +930,7 @@ class MathLayout:
             return b
         if kind == "script":
             base = self.lay(n[1], xh, level)
-            sxh = xh * (0.66 if level < 2 else 0.8)
+            sxh = max(min_sub, xh * (0.76 if level == 0 else 0.84))
             parts = []
             w = 0
             out = MBox(base.w, base.a, base.d)
@@ -866,16 +950,16 @@ class MathLayout:
             out.w = base.w + w + xh * 0.12
             return out
         if kind == "frac":
-            k = 0.88 if (self.display and level == 0) else 0.72
-            fxh = xh * (k if level == 0 else 0.85)
+            k = 0.90 if (self.display and level == 0) else 0.78
+            fxh = max(min_sub, xh * (k if level == 0 else 0.85))
             num, den = self.lay(n[1], fxh, level + 1), self.lay(n[2], fxh, level + 1)
-            w = max(num.w, den.w) + xh * 0.5
-            axis, gap = xh * 0.55, xh * 0.3
-            out = MBox(w + xh * 0.2)
-            out.place(num, xh * 0.1 + (w - num.w) / 2, axis + gap + num.d)
-            out.place(den, xh * 0.1 + (w - den.w) / 2, axis - gap - den.a)
+            w = max(num.w, den.w) + xh * 0.45
+            axis, gap = xh * 0.52, xh * (0.28 if self.display else 0.23)
+            out = MBox(w + xh * 0.18)
+            out.place(num, xh * 0.09 + (w - num.w) / 2, axis + gap + num.d)
+            out.place(den, xh * 0.09 + (w - den.w) / 2, axis - gap - den.a)
             if len(n) < 4:
-                out.items.append(("pen", [(xh * 0.1, axis), (xh * 0.1 + w, axis)], 0.11))
+                out.items.append(("pen", [(xh * 0.09, axis), (xh * 0.09 + w, axis)], 0.13))
             out.a = axis + gap + num.d + num.a
             out.d = max(0, -(axis - gap - den.a - den.d))
             return out
@@ -887,28 +971,33 @@ class MathLayout:
             out = MBox(x0 + body.w + xh * 0.25, top + xh * 0.08, bot)
             out.place(body, x0, 0)
             out.items.append(("pen", [(0, xh * 0.42), (xh * 0.2, xh * 0.55), (xh * 0.45, -bot),
-                                      (x0 - xh * 0.1, top), (x0 + body.w + xh * 0.15, top)], 0.11))
+                                      (x0 - xh * 0.1, top), (x0 + body.w + xh * 0.15, top)], 0.13))
             if n[1] is not None:
-                idx = self.lay(n[1], xh * 0.55, level + 2)
+                idx = self.lay(n[1], max(min_sub, xh * 0.65), level + 2)
                 out.place(idx, 0, xh * 0.75)
             return out
         if kind == "bigop":
             sym, lower, upper = n[1], n[2], n[3]
-            sxh = xh * 0.66
+            sxh = max(min_sub, xh * 0.74)
             lo = self.lay(lower, sxh, level + 1) if lower is not None else None
             up = self.lay(upper, sxh, level + 1) if upper is not None else None
             if sym.startswith("lim"):
                 op = self.text(sym, xh)
                 axis = 0
             else:
-                big = 1.45 if self.display else (1.3 if level == 0 else 1.0)
-                oxh = xh * big * (1.25 if sym in "∫∬∮" else 1.0)
-                w, a, d = self.cm(sym, oxh)
-                axis = xh * 0.55
+                big = 1.44 if self.display else (1.24 if level == 0 else 1.08)
+                oxh = xh * big * (1.20 if sym in "∫∬∮" else 1.0)
+                if sym in DRAWN:
+                    w, a, d = DRAWN[sym] * oxh, SYM_ASC.get(sym, 1.38) * oxh, 0.0
+                    item_kind = "sym"
+                else:
+                    w, a, d = self.cm(sym, oxh)
+                    item_kind = "ch"
+                axis = xh * 0.52
                 y = axis - (a - d) / 2
-                op = MBox(w, a + y, max(0, d - y), [("ch", sym, 0, y, oxh)])
+                op = MBox(w, a + y, max(0, d - y), [(item_kind, sym, 0, y, oxh)])
             out = MBox()
-            side = sym in "∫∬∮" or (not self.display and level == 0 and not sym.startswith("lim"))
+            side = sym in "∫∬∮"
             if side:
                 out.place(op, 0, 0)
                 out.w, out.a, out.d = op.w, op.a, op.d
@@ -926,7 +1015,7 @@ class MathLayout:
             w = max(op.w, lo.w if lo else 0, up.w if up else 0)
             out.place(op, (w - op.w) / 2, 0)
             out.a, out.d = op.a, op.d
-            gap = xh * 0.15
+            gap = xh * 0.20
             if up is not None:
                 y = op.a + gap + up.d
                 out.place(up, (w - up.w) / 2, y)
@@ -935,7 +1024,7 @@ class MathLayout:
                 y = -(op.d + gap + lo.a)
                 out.place(lo, (w - lo.w) / 2, y)
                 out.d = -y + lo.d
-            out.w = w + xh * 0.3
+            out.w = w + xh * 0.30
             return out
         if kind == "accent":
             body = self.lay(n[2], xh, level)
@@ -966,13 +1055,13 @@ class MathLayout:
             body = self.lay(n[2], xh, level)
             a = max(body.a, xh * 1.0) + xh * 0.15
             d = max(body.d, xh * 0.1) + xh * 0.15
-            if a + d < xh * 2.3:  # normal size: use the handwriting font
+            if a + d < xh * 2.15:  # normal size: drawn inline delimiter
                 parts = [self.char(n[1], xh, 9)] if n[1] != "." else []
                 parts.append(body)
                 if n[3] != ".":
                     parts.append(self.char(n[3], xh, 9))
                 return hcat(parts)
-            w = xh * 0.5
+            w = xh * 0.54
             out = MBox(0, a, d)
             for side, dl in ((0, n[1]), (1, n[3])):
                 if dl == ".":
@@ -981,13 +1070,11 @@ class MathLayout:
                     out.w += 0
                     continue
                 x = out.w
-                out.items.append(("pen", self.delim_pts(dl, x, w, a, d, side), 0.1))
+                out.items.append(("delim", dl, x, 0, (w, a, d)))
                 out.w += w
                 if side == 0:
                     out.place(body, out.w, 0)
                     out.w += body.w + xh * 0.05
-            if n[1] == ".":
-                pass
             return out
         return MBox()
 
@@ -1044,11 +1131,11 @@ class Page:
 
     def finish(self):
         out = ImageChops.multiply(self.paper, self.hl.filter(ImageFilter.GaussianBlur(1.2)))
-        if self.pen == "digital":  # Apple Pencil look: every stroke fully opaque, smooth edges
+        if self.pen == "digital":  # Apple Pencil look: every stroke fully opaque, crisp high-contrast edges
             for ink, m in self.masks.items():
                 col = Image.new("RGB", out.size, INKS.get(ink, INKS["black"]))
-                a = np.asarray(m.filter(ImageFilter.GaussianBlur(0.9)), dtype=np.float32) / 255.0
-                a = np.clip(a * 2.4 - 0.35, 0, 1)  # smooth photo-cut edges into a clean pencil line
+                a = np.asarray(m.filter(ImageFilter.GaussianBlur(0.55)), dtype=np.float32) / 255.0
+                a = np.clip(a * 2.35 - 0.12, 0, 1)  # keep even thin strokes and subscripts 100% solid & crisp
                 out = Image.composite(col, out, Image.fromarray((a * 255).astype(np.uint8)))
             return out
         W, H = out.size
@@ -1068,7 +1155,8 @@ class Page:
 
 class Renderer:
     def __init__(self, source, paper="grid", page="a4", size="medium", ink="black",
-                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0, drift=0.0, pen="ballpoint"):
+                 accent="blue", important="red", bullet="arrow", seed=None, mess=1.0, drift=0.0,
+                 pen="ballpoint", scratch_rate=0):
         self.src = source
         self.rng = random.Random(seed)
         (self.W, self.H), width_mm = PAGES[page]
@@ -1080,15 +1168,25 @@ class Renderer:
         elif paper == "college":
             self.line_h = 7.1 * self.mm * SIZES[size] ** 0.5
             self.xh = 0.33 * self.line_h * SIZES[size] ** 0.5
+        elif paper == "lines":
+            self.line_h = 0.0318 * self.W * SIZES[size]
+            self.xh = 0.335 * self.line_h
         else:
-            self.line_h = 0.058 * self.W * SIZES[size]
-            self.xh = 0.30 * self.line_h
+            self.line_h = 0.0355 * self.W * SIZES[size]
+            self.xh = 0.34 * self.line_h
         if paper == "squared":
             self.line_h = 8.5 * self.mm * SIZES[size] ** 0.5
             self.xh = 0.42 * self.line_h * SIZES[size] ** 0.5
-        self.margin_x = (32 if paper in ("seyes", "college", "squared", "lines") else 22) * self.mm
-        self.right = self.W - 16 * self.mm
-        self.first_base = (30 if paper in ("seyes", "college", "squared") else 24) * self.mm
+        if paper == "lines":
+            self.margin_x = 16.5 * self.mm
+            self.right = self.W - 10 * self.mm
+            self.first_base = 14 * self.mm
+            self.bottom_margin = 9 * self.mm
+        else:
+            self.margin_x = (32 if paper in ("seyes", "college", "squared") else 12) * self.mm
+            self.right = self.W - (14 if paper in ("seyes", "college", "squared") else 10) * self.mm
+            self.first_base = (30 if paper in ("seyes", "college", "squared") else 13) * self.mm
+            self.bottom_margin = (14 if paper in ("seyes", "college", "squared") else 9) * self.mm
         if paper == "seyes":
             self.first_base = round(self.first_base / self.line_h) * self.line_h
         self.ink, self.accent, self.important = ink, accent, important
@@ -1096,6 +1194,8 @@ class Renderer:
         self.mess = mess
         self.drift = drift  # average downward slope of lines, in degrees
         self.pen = pen
+        self.scratch_rate = max(0, int(scratch_rate))
+        self._scratch_uid = 0
         self.pages = []
         self._math = {}
         self.new_page()
@@ -1107,14 +1207,38 @@ class Renderer:
         self.page = Page(paper, INKS, self.pen)
         self.pages.append(self.page)
         self.base = self.first_base
+        self.ink_bottom = -1e9
+        self.prev_boxes = []
+        self.page_lines = 0
+        self.page_scratches = 0
+        if self.scratch_rate > 0:
+            if self.scratch_rate == 2:
+                g = self.rng.choice((1, 2, 2))
+            else:
+                g = self.rng.randint(1, self.scratch_rate) if self.scratch_rate > 1 else 1
+            slots = [self.rng.randint(2, 9)]
+            if g >= 2:
+                slots.append(self.rng.randint(14, 24))
+            for extra in range(2, min(g, 5)):
+                slots.append(min(33, slots[-1] + self.rng.randint(5, 8)))
+            self.scratch_targets = sorted(slots)
+        else:
+            self.scratch_targets = []
 
-    def next_line(self, n=1):
+    def snap_base(self):
+        if self.paper_kind in ("lines", "college"):
+            k = max(0, math.ceil((self.base - self.first_base - 2.0) / self.line_h))
+            self.base = self.first_base + k * self.line_h
+            if self.base > self.H - self.bottom_margin:
+                self.new_page()
+
+    def next_line(self, n=1.0):
         self.base += self.line_h * n
-        if self.base > self.H - 14 * self.mm:
+        if self.base > self.H - self.bottom_margin:
             self.new_page()
 
-    def ensure_room(self, n=1):
-        if self.base + self.line_h * (n - 1) > self.H - 14 * self.mm:
+    def ensure_room(self, n=1.0):
+        if self.base + self.line_h * max(0.0, n - 1.0) > self.H - self.bottom_margin:
             self.new_page()
 
     # drawing primitives
@@ -1134,13 +1258,15 @@ class Renderer:
         self.page.stamp(ink, m, x0, y0)
 
     def arrow(self, x, base, ink, xh):
-        w = xh * 2.0
-        y = base - xh * 0.55 + self.j(xh * 0.05)
-        shaft = wobble_points((x, y), (x + w, y + self.j(xh * 0.08)), xh * 0.05, self.rng)
+        w = xh * (1.95 + self.j(0.08))
+        y = base - xh * (0.55 + self.j(0.05))
+        shaft = self._wb((x, y), (x + w, y + self.j(xh * 0.10)), xh, 0.042, 0.05)
         tx, ty = shaft[-1]
-        hd = xh * 0.6
-        head = [(tx - hd + self.j(1), ty - hd * 0.7), (tx, ty), (tx - hd + self.j(1), ty + hd * 0.7)]
-        self.draw_strokes(ink, [shaft, head], xh * 0.15)
+        hd1 = xh * (0.56 + self.j(0.06))
+        hd2 = xh * (0.56 + self.j(0.06))
+        w1 = self._wb((tx - hd1, ty - hd1 * (0.68 + self.j(0.08))), (tx, ty), xh, 0.032, 0.045)
+        w2 = self._wb((tx, ty), (tx - hd2, ty + hd2 * (0.68 + self.j(0.08))), xh, 0.032, 0.045)
+        self.draw_strokes(ink, [shaft, w1, w2], max(2.0, xh * 0.14))
         return w + xh * 0.6
 
     def bullet_mark(self, x, base, ink, xh, level):
@@ -1167,89 +1293,364 @@ class Renderer:
         self.draw_strokes(ink, [hook, head], xh * 0.14)
         return xh * 1.9
 
+    def _wb(self, p0, p1, xh, amp_k=0.036, bow_k=0.045):
+        """Hand-drawn segment from p0 to p1 with subtle natural arc bow + slow wobble."""
+        jm = min(1.5, self.mess / 0.55)
+        if jm <= 1e-4:
+            return [p0, p1]
+        (x0, y0), (x1, y1) = p0, p1
+        L = math.hypot(x1 - x0, y1 - y0) or 1.0
+        nx, ny = -(y1 - y0) / L, (x1 - x0) / L
+        bow = self.j(xh * bow_k)
+        base_pts = wobble_points(p0, p1, xh * amp_k * jm, self.rng, n=max(5, int(L / 10)))
+        n_pts = len(base_pts) - 1
+        return [(px + nx * bow * math.sin(math.pi * idx / n_pts),
+                 py + ny * bow * math.sin(math.pi * idx / n_pts))
+                for idx, (px, py) in enumerate(base_pts)]
+
+    def draw_delim(self, dl, x, top_y, bot_y, w, ink, xh):
+        """Draw organic hand-varied (), [], {}, |, ⟨⟩ with visible angle, arc, and wobble variation."""
+        jm = min(1.5, self.mess / 0.55)
+        j = self.j
+        pw = max(2.0, xh * 0.126)
+        top_y = top_y + j(xh * 0.065)
+        bot_y = bot_y + j(xh * 0.065)
+        h = max(xh * 0.6, bot_y - top_y)
+        tilt_dx = h * math.tan(math.radians(j(5.8)))
+        h_scale = max(1.0, h / (xh * 1.7))
+        if dl in ("(", ")"):
+            s = 1 if dl == "(" else -1
+            cx_top = x + (w * 0.82 if dl == "(" else w * 0.18) + j(w * 0.09)
+            cx_bot = cx_top + tilt_dx + j(w * 0.09)
+            depth = w * (0.60 + self.rng.uniform(-0.18, 0.22) * jm) * (1.0 + 0.08 * (h_scale - 1.0))
+            asym = self.rng.uniform(-0.22, 0.22) * jm
+            ph = self.rng.uniform(0, 6.28)
+            pts = []
+            N = 16
+            for k in range(N + 1):
+                t = k / N
+                t_skew = max(0.0, min(1.0, t + asym * t * (1 - t)))
+                bx = cx_top + (cx_bot - cx_top) * t
+                arc = math.sin(math.pi * t_skew) * depth
+                wob = math.sin(2.4 * math.pi * t + ph) * (xh * 0.035 * jm * (h_scale ** 0.5))
+                pts.append((bx - s * (arc + wob), top_y + h * t))
+            self.draw_strokes(ink, [pts], pw)
+        elif dl in ("[", "]", "⌊", "⌈"):
+            is_left = dl in ("[", "⌊", "⌈")
+            sx_top = x + (w * 0.24 if is_left else w * 0.76) + j(w * 0.08)
+            sx_bot = sx_top + tilt_dx + j(w * 0.07)
+            d_dir = 1 if is_left else -1
+            tw_top = w * (0.54 + self.rng.uniform(-0.13, 0.16) * jm)
+            tw_bot = w * (0.54 + self.rng.uniform(-0.13, 0.16) * jm)
+            tx_top = sx_top + d_dir * tw_top
+            tx_bot = sx_bot + d_dir * tw_bot
+            ty_top_end = top_y + j(xh * 0.085)
+            ty_bot_end = bot_y + j(xh * 0.085)
+            spine = self._wb((sx_top, top_y), (sx_bot, bot_y), xh, 0.042 * (h_scale ** 0.6), 0.075 * h_scale)
+            strokes = [spine]
+            if dl != "⌊":
+                strokes.append(self._wb((tx_top, ty_top_end), (sx_top, top_y), xh, 0.036, 0.05))
+            if dl != "⌈":
+                strokes.append(self._wb((sx_bot, bot_y), (tx_bot, ty_bot_end), xh, 0.036, 0.05))
+            self.draw_strokes(ink, strokes, pw)
+        elif dl in ("{", "}"):
+            xa_t = x + (w * 0.80 if dl == "{" else w * 0.20) + j(w * 0.06)
+            xa_b = xa_t + tilt_dx
+            xb = x + (w * 0.20 if dl == "{" else w * 0.80) + tilt_dx * 0.5 + j(w * 0.08)
+            xm_t = (xa_t + xb) * 0.52 + j(w * 0.05)
+            xm_b = (xa_b + xb) * 0.52 + j(w * 0.05)
+            mid_y = (top_y + bot_y) * 0.5 + j(h * 0.045)
+            s1 = self._wb((xa_t, top_y), (xm_t, mid_y - h * 0.08), xh, 0.034, 0.05 * h_scale) + [(xb, mid_y)]
+            s2 = [(xb, mid_y)] + self._wb((xm_b, mid_y + h * 0.08), (xa_b, bot_y), xh, 0.034, 0.05 * h_scale)
+            self.draw_strokes(ink, [s1, s2], pw)
+        elif dl in ("⟨", "⟩"):
+            xa_t = x + (w * 0.78 if dl == "⟨" else w * 0.22)
+            xb = x + (w * 0.22 if dl == "⟨" else w * 0.78) + tilt_dx * 0.5 + j(w * 0.06)
+            mid_y = (top_y + bot_y) * 0.5 + j(h * 0.04)
+            self.draw_strokes(ink, [self._wb((xa_t, top_y), (xb, mid_y), xh, 0.036, 0.05 * h_scale),
+                                    self._wb((xb, mid_y), (xa_t + tilt_dx, bot_y), xh, 0.036, 0.05 * h_scale)], pw)
+        else:  # | and ‖
+            cx_t = x + w * 0.50 + j(w * 0.08)
+            cx_b = cx_t + tilt_dx
+            self.draw_strokes(ink, [self._wb((cx_t, top_y), (cx_b, bot_y), xh, 0.038 * (h_scale ** 0.5), 0.065 * h_scale)], pw)
+
     def symbol(self, c, x, base, ink, xh):
-        """Pen-drawn maths symbols that handwriting fonts lack."""
-        j, pw = self.j, xh * 0.12
-        x0, w = x + xh * 0.15, xh * 0.85
-        top, bot = base - xh * 1.05, base
+        """Pen-drawn maths symbols with natural hand jitter, micro-tilt, and stroke variation."""
+        if c in "()[]|{}":
+            self.draw_delim(c, x, base - SYM_ASC[c] * xh, base + SYM_DESC[c] * xh, DRAWN[c] * xh, ink, xh)
+            return DRAWN[c] * xh
+        j, pw = self.j, max(2.0, xh * 0.124)
+        jm = min(1.5, self.mess / 0.55)
+        wb = lambda a, b, ak=0.036, bk=0.045: self._wb(a, b, xh, ak, bk)
+        x0, w = x + xh * 0.14 + j(xh * 0.025), xh * 0.85
+        top, bot = base - xh * 1.05 + j(xh * 0.03), base + j(xh * 0.03)
         if c in "∩∪":
-            n = 10
+            n = 12
+            tilt = j(xh * 0.05)
+            w_u = w * (1 + j(0.05))
             arc = []
             for i in range(n + 1):
                 t = math.pi * i / n
-                ax = x0 + w / 2 - math.cos(t) * w / 2
+                ax = x0 + w_u / 2 - math.cos(t) * w_u / 2 + j(xh * 0.012)
                 if c == "∩":
-                    ay = top + w / 2 - math.sin(t) * w / 2
-                    arc.append((ax, ay))
+                    ay = top + w_u / 2 - math.sin(t) * w_u / 2 + tilt * (i / n)
                 else:
-                    ay = bot - w / 2 + math.sin(t) * w / 2
-                    arc.append((ax, ay))
+                    ay = bot - w_u / 2 + math.sin(t) * w_u / 2 + tilt * (i / n)
+                arc.append((ax, ay))
             if c == "∩":
-                strokes = [[(x0, bot)] + arc + [(x0 + w, bot + j(1))]]
+                strokes = [wb((x0 + j(xh * 0.03), bot), arc[0], 0.02, 0.02) + arc[1:] + wb(arc[-1], (x0 + w_u + j(xh * 0.03), bot + tilt + j(xh * 0.04)), 0.02, 0.02)[1:]]
             else:
-                strokes = [[(x0, top)] + arc + [(x0 + w, top + j(1))]]
+                strokes = [wb((x0 + j(xh * 0.03), top), arc[0], 0.02, 0.02) + arc[1:] + wb(arc[-1], (x0 + w_u + j(xh * 0.03), top + tilt + j(xh * 0.04)), 0.02, 0.02)[1:]]
         elif c == "∅":
-            cx, cy, r = x0 + w / 2, base - xh * 0.55, xh * 0.5
-            circ = [(cx + r * math.cos(t) * 0.9, cy + r * math.sin(t)) for t in
+            cx, cy, r = x0 + w / 2, base - xh * 0.55 + j(xh * 0.03), xh * (0.48 + j(0.03))
+            circ = [(cx + r * math.cos(t) * 0.9 + j(xh * 0.012), cy + r * math.sin(t) + j(xh * 0.012)) for t in
                     [k * 2 * math.pi / 16 for k in range(18)]]
-            strokes = [circ, [(cx - r * 0.7, cy + r * 1.3), (cx + r * 0.7, cy - r * 1.3)]]
+            strokes = [circ, wb((cx - r * 0.72 + j(xh * 0.05), cy + r * 1.28), (cx + r * 0.72 + j(xh * 0.05), cy - r * 1.28))]
         elif c == "∈":
-            cy = base - xh * 0.5
-            n = 10
-            arc = [(x0 + w - (w * math.sin(math.pi * i / n)), cy - xh * 0.5 * math.cos(math.pi * i / n))
+            cy = base - xh * 0.52 + j(xh * 0.03)
+            n = 11
+            ry = xh * (0.48 + j(0.035))
+            arc = [(x0 + w - (w * math.sin(math.pi * i / n)) + j(xh * 0.01), cy - ry * math.cos(math.pi * i / n))
                    for i in range(n + 1)]
-            strokes = [arc, [(x0 + w * 0.05, cy), (x0 + w * 0.85, cy + j(0.5))]]
+            strokes = [arc, wb((x0 + w * 0.05, cy + j(xh * 0.02)), (x0 + w * 0.85, cy + j(xh * 0.05)))]
         elif c == "⇒":
-            cy, L = base - xh * 0.55, xh * 1.8
-            d = xh * 0.17
-            strokes = [[(x0, cy - d), (x0 + L - d, cy - d)], [(x0, cy + d), (x0 + L - d, cy + d)],
-                       [(x0 + L - xh * 0.5, cy - xh * 0.45), (x0 + L, cy), (x0 + L - xh * 0.5, cy + xh * 0.45)]]
+            cy = base - xh * (0.54 + j(0.05))
+            L = xh * (1.76 + j(0.10))
+            sl = j(xh * 0.14)
+            d1 = xh * (0.165 + j(0.035))
+            d2 = xh * (0.165 + j(0.035))
+            s_top = wb((x0 + j(xh * 0.08), cy - d1 + j(xh * 0.03)), (x0 + L - xh * 0.17 + j(xh * 0.06), cy - d1 + sl + j(xh * 0.055)), 0.052, 0.075)
+            s_bot = wb((x0 + j(xh * 0.08), cy + d2 + j(xh * 0.03)), (x0 + L - xh * 0.17 + j(xh * 0.06), cy + d2 + sl + j(xh * 0.055)), 0.052, 0.075)
+            tx, ty = x0 + L + j(xh * 0.05), cy + sl + j(xh * 0.045)
+            w_up = wb((tx - xh * (0.48 + j(0.07)), ty - xh * (0.43 + j(0.07))), (tx, ty), 0.042, 0.065)
+            w_dn = wb((tx, ty), (tx - xh * (0.48 + j(0.07)), ty + xh * (0.43 + j(0.07))), 0.042, 0.065)
+            strokes = [s_top, s_bot, w_up, w_dn]
         elif c == "∀":
-            t, b2 = base - xh * 1.45, base
-            strokes = [[(x0, t), (x0 + w * 0.55, b2), (x0 + w * 1.1, t + j(1))],
-                       [(x0 + w * 0.2, base - xh * 0.75), (x0 + w * 0.9, base - xh * 0.75)]]
+            t, b2 = base - xh * 1.44 + j(xh * 0.04), base + j(xh * 0.03)
+            xm_v = x0 + w * 0.55 + j(xh * 0.04)
+            strokes = [wb((x0, t), (xm_v, b2)), wb((xm_v, b2), (x0 + w * 1.08, t + j(xh * 0.05))),
+                       wb((x0 + w * 0.2, base - xh * 0.74), (x0 + w * 0.9, base - xh * 0.74 + j(xh * 0.05)))]
         elif c == "∃":
-            t = base - xh * 1.45
-            strokes = [[(x0, t), (x0 + w * 0.85, t), (x0 + w * 0.85, base), (x0, base + j(0.5))],
-                       [(x0 + w * 0.15, base - xh * 0.72), (x0 + w * 0.85, base - xh * 0.72)]]
+            t = base - xh * 1.44 + j(xh * 0.04)
+            rx_e = x0 + w * 0.85 + j(xh * 0.04)
+            strokes = [wb((x0, t), (rx_e, t + j(xh * 0.04))), wb((rx_e, t), (rx_e + j(xh * 0.04), bot)),
+                       wb((rx_e, bot), (x0, bot + j(xh * 0.04))),
+                       wb((x0 + w * 0.16, base - xh * 0.72), (rx_e, base - xh * 0.72 + j(xh * 0.04)))]
         elif c in "⊂⊆∉":
-            cy, r = base - xh * 0.55 + (xh * 0.12 if c == "⊆" else 0), xh * 0.45
-            arc = [(x0 + w - (w * math.sin(math.pi * i / 10)), cy - r * math.cos(math.pi * i / 10)) for i in range(11)]
+            cy = base - xh * 0.55 + (xh * 0.12 if c == "⊆" else 0) + j(xh * 0.03)
+            r = xh * (0.44 + j(0.03))
+            arc = [(x0 + w - (w * math.sin(math.pi * i / 10)) + j(xh * 0.012), cy - r * math.cos(math.pi * i / 10)) for i in range(11)]
             strokes = [arc]
             if c == "∉":
-                strokes.append([(x0 + w * 0.05, cy), (x0 + w * 0.85, cy)])
-                strokes.append([(x0 + w * 0.25, cy + r * 1.3), (x0 + w * 0.75, cy - r * 1.3)])
+                strokes.append(wb((x0 + w * 0.05, cy), (x0 + w * 0.85, cy + j(xh * 0.04))))
+                strokes.append(wb((x0 + w * 0.25, cy + r * 1.3), (x0 + w * 0.75 + j(xh * 0.05), cy - r * 1.3)))
             if c == "⊆":
-                strokes.append([(x0 + w * 0.1, base + xh * 0.12), (x0 + w, base + xh * 0.12)])
+                strokes.append(wb((x0 + w * 0.08, base + xh * 0.12), (x0 + w, base + xh * 0.12 + j(xh * 0.05))))
         elif c == "≡":
-            strokes = [wobble_points((x0, base - xh * k), (x0 + w, base - xh * k + j(0.5)), 0.6, self.rng)
+            sl = j(xh * 0.06)
+            strokes = [wb((x0 + j(xh * 0.03), base - xh * k), (x0 + w + j(xh * 0.03), base - xh * k + sl + j(xh * 0.04)))
                        for k in (0.25, 0.55, 0.85)]
         elif c in "→↦":
-            cy, L = base - xh * 0.55, xh * 1.6
+            cy = base - xh * (0.54 + j(0.04))
+            L = xh * (1.58 + j(0.07))
+            sl = j(xh * 0.09)
             s0 = x0 + (xh * 0.2 if c == "↦" else 0)
-            strokes = [wobble_points((s0, cy), (s0 + L, cy + j(0.8)), xh * 0.04, self.rng),
-                       [(s0 + L - xh * 0.45, cy - xh * 0.38), (s0 + L, cy), (s0 + L - xh * 0.45, cy + xh * 0.38)]]
+            tx, ty = s0 + L, cy + sl
+            strokes = [wb((s0, cy), (tx, ty), 0.04, 0.055),
+                       wb((tx - xh * (0.44 + j(0.05)), ty - xh * (0.37 + j(0.05))), (tx, ty), 0.032, 0.045),
+                       wb((tx, ty), (tx - xh * (0.44 + j(0.05)), ty + xh * (0.37 + j(0.05))), 0.032, 0.045)]
             if c == "↦":
-                strokes.append([(x0 + xh * 0.2, cy - xh * 0.35), (x0 + xh * 0.2, cy + xh * 0.35)])
+                strokes.append(wb((s0, cy - xh * 0.35), (s0 + j(xh * 0.04), cy + xh * 0.35)))
         elif c == "⇔":
-            cy, L, d = base - xh * 0.55, xh * 2.2, xh * 0.17
-            strokes = [[(x0 + d, cy - d), (x0 + L - d, cy - d)], [(x0 + d, cy + d), (x0 + L - d, cy + d)],
-                       [(x0 + L - xh * 0.45, cy - xh * 0.42), (x0 + L, cy), (x0 + L - xh * 0.45, cy + xh * 0.42)],
-                       [(x0 + xh * 0.45, cy - xh * 0.42), (x0, cy), (x0 + xh * 0.45, cy + xh * 0.42)]]
+            cy = base - xh * (0.54 + j(0.04))
+            L = xh * (2.18 + j(0.08))
+            sl = j(xh * 0.09)
+            d1, d2 = xh * (0.165 + j(0.02)), xh * (0.165 + j(0.02))
+            tx, ty = x0 + L, cy + sl
+            lx0, ly0 = x0, cy
+            strokes = [
+                wb((x0 + xh * 0.16, cy - d1), (tx - xh * 0.16, ty - d1 + j(xh * 0.04))),
+                wb((x0 + xh * 0.16, cy + d2), (tx - xh * 0.16, ty + d2 + j(xh * 0.04))),
+                wb((tx - xh * (0.45 + j(0.05)), ty - xh * (0.41 + j(0.05))), (tx, ty), 0.03, 0.04),
+                wb((tx, ty), (tx - xh * (0.45 + j(0.05)), ty + xh * (0.41 + j(0.05))), 0.03, 0.04),
+                wb((lx0 + xh * (0.45 + j(0.05)), ly0 - xh * (0.41 + j(0.05))), (lx0, ly0), 0.03, 0.04),
+                wb((lx0, ly0), (lx0 + xh * (0.45 + j(0.05)), ly0 + xh * (0.41 + j(0.05))), 0.03, 0.04),
+            ]
         elif c == "∘":
-            cx, cy, r = x0 + xh * 0.25, base - xh * 0.55, xh * 0.2
-            strokes = [[(cx + r * math.cos(k * math.pi / 6), cy + r * math.sin(k * math.pi / 6)) for k in range(13)]]
+            cx, cy, r = x0 + xh * 0.25, base - xh * 0.55 + j(xh * 0.03), xh * (0.20 + j(0.02))
+            strokes = [[(cx + r * math.cos(k * math.pi / 6) + j(xh * 0.01), cy + r * math.sin(k * math.pi / 6) + j(xh * 0.01)) for k in range(13)]]
         elif c == "∇":
             t = base - xh * 1.4
-            strokes = [[(x0, t), (x0 + w * 1.1, t), (x0 + w * 0.55, base), (x0, t)]]
+            strokes = [wb((x0, t), (x0 + w * 1.1, t + j(xh * 0.04))),
+                       wb((x0 + w * 1.1, t), (x0 + w * 0.55, base)),
+                       wb((x0 + w * 0.55, base), (x0, t))]
         elif c == "⋯":
-            cy = base - xh * 0.5
-            strokes = [[(x0 + xh * k, cy), (x0 + xh * k + 0.6, cy)] for k in (0.1, 0.6, 1.1)]
-            pw = xh * 0.17
+            cy = base - xh * 0.50
+            strokes = [[(x0 + xh * k + j(xh * 0.03), cy + j(xh * 0.04)),
+                        (x0 + xh * k + xh * 0.04 + j(xh * 0.03), cy + j(xh * 0.04))] for k in (0.1, 0.6, 1.1)]
+            pw = max(2.4, xh * 0.18)
+        elif c == "/":
+            dx_sl = xh * (0.48 + self.rng.uniform(-0.22, 0.28) * jm)
+            bx_s = x + xh * 0.06 + j(xh * 0.04)
+            by_s = base + xh * (0.16 + j(0.06))
+            tx_s = bx_s + dx_sl + j(xh * 0.04)
+            ty_s = base - xh * (1.30 + j(0.07))
+            strokes = [wb((tx_s, ty_s), (bx_s, by_s), 0.048, 0.085)]
+        elif c in ("−", "-"):
+            cy = base - xh * (0.52 + j(0.035))
+            w_bar = xh * ((0.68 if c == "−" else 0.48) + j(0.04))
+            strokes = [wb((x0 + xh * 0.04, cy), (x0 + xh * 0.04 + w_bar, cy + j(xh * 0.06)), 0.034, 0.045)]
+        elif c == "+":
+            cy = base - xh * (0.52 + j(0.035))
+            cx = x0 + xh * (0.36 + j(0.035))
+            strokes = [
+                wb((x0 + xh * 0.04, cy), (x0 + xh * 0.68 + j(xh * 0.04), cy + j(xh * 0.06)), 0.032, 0.04),
+                wb((cx + j(xh * 0.03), base - xh * (0.86 + j(0.04))), (cx + j(xh * 0.04), base - xh * (0.18 + j(0.04))), 0.032, 0.04),
+            ]
+        elif c in ("<", ">"):
+            cy = base - xh * (0.52 + j(0.04))
+            lx, rx = x0 + xh * 0.06 + j(xh * 0.03), x0 + xh * 0.72 + j(xh * 0.04)
+            open_u = xh * (0.30 + j(0.045))
+            open_d = xh * (0.30 + j(0.045))
+            sl = j(xh * 0.06)
+            if c == "<":
+                vx, vy = lx, cy + j(xh * 0.03)
+                strokes = [wb((rx + j(xh * 0.04), cy - open_u + sl), (vx, vy), 0.032, 0.045),
+                           wb((vx, vy), (rx + j(xh * 0.04), cy + open_d + sl), 0.032, 0.045)]
+            else:
+                vx, vy = rx, cy + j(xh * 0.03)
+                strokes = [wb((lx + j(xh * 0.04), cy - open_u), (vx, vy + sl), 0.032, 0.045),
+                           wb((vx, vy + sl), (lx + j(xh * 0.04), cy + open_d), 0.032, 0.045)]
+        elif c == "∞":
+            cy = base - xh * (0.50 + j(0.03))
+            rx, ry = xh * (0.52 + j(0.035)), xh * (0.25 + j(0.025))
+            sl = j(0.10)
+            cx = x0 + rx
+            pts = []
+            for k in range(25):
+                t = k * 2 * math.pi / 24
+                px_i = rx * math.cos(t) / (1 + math.sin(t) ** 2)
+                py_i = ry * 1.45 * math.sin(t) * math.cos(t) / (1 + math.sin(t) ** 2)
+                pts.append((cx + px_i + j(xh * 0.01), cy + py_i + px_i * sl + j(xh * 0.01)))
+            strokes = [pts]
+        elif c in ("=", "≠"):
+            sl = j(xh * 0.055)
+            k1, k2 = 0.28 + j(0.025), 0.70 + j(0.025)
+            strokes = [
+                wb((x0 + j(xh * 0.03), base - xh * k1), (x0 + xh * (0.72 + j(0.04)), base - xh * k1 + sl + j(xh * 0.035)), 0.032, 0.04),
+                wb((x0 + j(xh * 0.03), base - xh * k2), (x0 + xh * (0.72 + j(0.04)), base - xh * k2 + sl + j(xh * 0.035)), 0.032, 0.04),
+            ]
+            if c == "≠":
+                strokes.append(wb((x0 + xh * (0.16 + j(0.05)), base - xh * 0.06), (x0 + xh * (0.58 + j(0.05)), base - xh * 0.96), 0.034, 0.045))
+        elif c == "≈":
+            strokes = []
+            sl_base = j(xh * 0.12)
+            for k in (0.32, 0.70):
+                cy = base - xh * (k + j(0.045))
+                sx_w = x0 + j(xh * 0.065)
+                wl = xh * (0.76 + j(0.08))
+                amp = xh * (0.112 + self.rng.uniform(-0.035, 0.045) * jm)
+                ph = self.rng.uniform(-0.48, 0.48) * jm
+                sl = sl_base + j(xh * 0.075)
+                asym = self.rng.uniform(0.72, 1.30) if jm > 0 else 1.0
+                pts = []
+                for t_i in range(13):
+                    u = t_i / 12
+                    s_val = math.sin(2 * math.pi * u + ph)
+                    if s_val < 0:
+                        s_val *= asym
+                    pts.append((sx_w + wl * u, cy - s_val * amp + sl * u + j(xh * 0.022)))
+                strokes.append(pts)
+        elif c in ("±", "∓"):
+            cy = base - xh * ((0.66 if c == "±" else 0.36) + j(0.03))
+            by2 = base - xh * ((0.19 if c == "±" else 0.85) + j(0.03))
+            cx = x0 + xh * (0.38 + j(0.035))
+            strokes = [
+                wb((x0 + xh * 0.04, cy), (x0 + xh * 0.72, cy + j(xh * 0.05))),
+                wb((cx, base - xh * 0.96), (cx + j(xh * 0.04), base - xh * 0.32)),
+                wb((x0 + xh * 0.05 + j(xh * 0.03), by2), (x0 + xh * 0.72 + j(xh * 0.03), by2 + j(xh * 0.055))),
+            ]
+        elif c == "×":
+            strokes = [
+                wb((x0 + xh * 0.08 + j(xh * 0.04), base - xh * (0.86 + j(0.04))), (x0 + xh * 0.68 + j(xh * 0.04), base - xh * (0.18 + j(0.04))), 0.032, 0.045),
+                wb((x0 + xh * 0.68 + j(xh * 0.04), base - xh * (0.86 + j(0.04))), (x0 + xh * 0.08 + j(xh * 0.04), base - xh * (0.18 + j(0.04))), 0.032, 0.045),
+            ]
+        elif c in ("≤", "≥"):
+            cy = base - xh * (0.63 + j(0.045))
+            lx, rx = x0 + xh * 0.05 + j(xh * 0.045), x0 + xh * 0.73 + j(xh * 0.05)
+            sl = j(xh * 0.11)
+            open_u = xh * (0.28 + j(0.055))
+            open_d = xh * (0.24 + j(0.055))
+            if c == "≤":
+                vx, vy = lx, cy + j(xh * 0.04)
+                arm1 = wb((rx + j(xh * 0.05), cy - open_u + sl * 0.5), (vx, vy), 0.042, 0.065)
+                arm2 = wb((vx, vy), (rx + j(xh * 0.05), cy + open_d + sl), 0.042, 0.065)
+                by_l = base - xh * (0.17 + j(0.045))
+                by_r = by_l + sl + xh * self.rng.uniform(-0.04, 0.11) * jm
+            else:
+                vx, vy = rx, cy + j(xh * 0.04)
+                arm1 = wb((lx + j(xh * 0.05), cy - open_u), (vx, vy + sl * 0.5), 0.042, 0.065)
+                arm2 = wb((vx, vy + sl * 0.5), (lx + j(xh * 0.05), cy + open_d + sl), 0.042, 0.065)
+                by_l = base - xh * (0.17 + j(0.045))
+                by_r = by_l + sl + xh * self.rng.uniform(-0.11, 0.04) * jm
+            bar = wb((lx + j(xh * 0.055), by_l), (rx + j(xh * 0.06), by_r), 0.044, 0.065)
+            strokes = [arm1, arm2, bar]
+        elif c in ("∴", "∵"):
+            base_pts = ([(0.40, 0.82), (0.13, 0.24), (0.67, 0.24)] if c == "∴"
+                        else [(0.13, 0.82), (0.67, 0.82), (0.40, 0.24)])
+            rot = math.radians(j(11.0))
+            cs, sn = math.cos(rot), math.sin(rot)
+            sx_k, sy_k = 1.0 + j(0.12), 1.0 + j(0.12)
+            for px, py in base_pts:
+                dx_c, dy_c = (px - 0.40) * sx_k, (py - 0.53) * sy_k
+                rx_p = 0.40 + dx_c * cs - dy_c * sn
+                ry_p = 0.53 + dx_c * sn + dy_c * cs
+                dot_x = x0 + xh * rx_p + j(xh * 0.07)
+                dot_y = base - xh * ry_p + j(xh * 0.07)
+                fl_len = xh * (0.04 + abs(j(0.04)))
+                fl_ang = self.rng.uniform(0, 6.28)
+                dot_pw = max(2.4, xh * 0.195 * (1.0 + j(0.11)))
+                self.draw_strokes(ink, [[(dot_x, dot_y), (dot_x + fl_len * math.cos(fl_ang) + 0.5, dot_y + fl_len * math.sin(fl_ang) + 0.3)]], dot_pw)
+            return DRAWN[c] * xh
+        elif c == "~":
+            cy = base - xh * (0.52 + j(0.04))
+            wl = xh * (0.76 + j(0.06))
+            amp = xh * (0.12 + self.rng.uniform(-0.025, 0.035) * jm)
+            ph = self.rng.uniform(-0.34, 0.34) * jm
+            sl = j(xh * 0.08)
+            strokes = [[(x0 + wl * (t / 12), cy - math.sin(2 * math.pi * t / 12 + ph) * amp + sl * (t / 12) + j(xh * 0.015))
+                        for t in range(13)]]
+        elif c == ".":
+            cx, cy = x + xh * 0.20 + j(xh * 0.025), base - xh * 0.06 + j(xh * 0.025)
+            strokes = [[(cx, cy), (cx + xh * 0.03 + 0.6, cy + xh * 0.02 + 0.3)]]
+            pw = max(2.2, xh * 0.21 * (1 + j(0.08)))
+        elif c in ("∑", "Σ"):
+            t_top = base - xh * (1.34 + j(0.04))
+            b_bot = base + xh * (0.04 + j(0.03))
+            sl = j(xh * 0.05)
+            xr = x0 + xh * (0.96 + j(0.05))
+            xm, ym = x0 + xh * (0.50 + j(0.035)), (t_top + b_bot) * 0.50 + j(xh * 0.035)
+            top_bar = [(xr, t_top + sl + xh * 0.10)] + wb((xr, t_top + sl), (x0, t_top), 0.024, 0.03)
+            diag1 = wb((x0, t_top), (xm, ym), 0.024, 0.03)
+            diag2 = wb((xm, ym), (x0 + j(xh * 0.03), b_bot), 0.024, 0.03)
+            bot_bar = wb((x0 + j(xh * 0.03), b_bot), (xr + j(xh * 0.03), b_bot + sl), 0.024, 0.03) + [(xr + j(xh * 0.03), b_bot + sl - xh * 0.08)]
+            strokes = [top_bar, diag1, diag2, bot_bar]
+            pw = max(2.0, xh * 0.132)
+        elif c == "∏":
+            t_top, b_bot = base - xh * (1.34 + j(0.04)), base + j(xh * 0.03)
+            xr = x0 + xh * (0.86 + j(0.04))
+            strokes = [
+                wb((x0 - xh * 0.06, t_top), (xr + xh * 0.06, t_top + j(xh * 0.05)), 0.026, 0.035),
+                wb((x0 + xh * 0.14, t_top), (x0 + xh * 0.14 + j(xh * 0.04), b_bot), 0.026, 0.035),
+                wb((xr - xh * 0.14, t_top), (xr - xh * 0.14 + j(xh * 0.04), b_bot), 0.026, 0.035),
+            ]
+            pw = max(2.0, xh * 0.12)
         else:  # ←
-            cy, L = base - xh * 0.55, xh * 1.7
-            strokes = [wobble_points((x0 + L, cy), (x0, cy + j(1)), xh * 0.04, self.rng),
-                       [(x0 + xh * 0.5, cy - xh * 0.42), (x0, cy), (x0 + xh * 0.5, cy + xh * 0.42)]]
+            cy, L = base - xh * (0.55 + j(0.04)), xh * (1.68 + j(0.07))
+            sl = j(xh * 0.08)
+            strokes = [wb((x0 + L, cy + sl), (x0, cy), 0.038, 0.05),
+                       wb((x0 + xh * (0.48 + j(0.05)), cy - xh * (0.40 + j(0.05))), (x0, cy), 0.03, 0.04),
+                       wb((x0, cy), (x0 + xh * (0.48 + j(0.05)), cy + xh * (0.40 + j(0.05))), 0.03, 0.04)]
         self.draw_strokes(ink, strokes, pw)
         return DRAWN[c] * xh
 
@@ -1266,21 +1667,32 @@ class Renderer:
     def draw_math(self, box, x, base, ink):
         for it in box.items:
             if it[0] == "pen":
-                ox, oy = self.j(self.xh * 0.05), self.j(self.xh * 0.05)  # move the whole stroke, keep its shape
+                ox, oy = self.j(self.xh * 0.045), self.j(self.xh * 0.045)
                 pts = [(x + px + ox, base - py + oy) for px, py in it[1]]
-                if len(pts) == 2:  # fraction bars, overlines: not ruler-straight
+                if len(pts) == 2:  # fraction bars, overlines: natural hand tilt + curve
                     (ax, ay), (bx2, by2) = pts
-                    pts = wobble_points((ax - self.j(self.xh * 0.1), ay), (bx2 + self.j(self.xh * 0.15), by2 + self.j(self.xh * 0.08)),
-                                        self.xh * 0.05, self.rng)
-                self.draw_strokes(ink, [pts], self.xh * it[2])
+                    pts = self._wb((ax - self.j(self.xh * 0.08), ay + self.j(self.xh * 0.035)),
+                                   (bx2 + self.j(self.xh * 0.10), by2 + self.j(self.xh * 0.065)),
+                                   self.xh, 0.042, 0.045)
+                elif len(pts) > 2:  # sqrt radicals, hats, vector arrows: wobble every segment
+                    w_pts = [pts[0]]
+                    for k_p in range(len(pts) - 1):
+                        p_a = w_pts[-1]
+                        p_b = (pts[k_p + 1][0] + self.j(self.xh * 0.03), pts[k_p + 1][1] + self.j(self.xh * 0.035))
+                        w_pts.extend(self._wb(p_a, p_b, self.xh, 0.030, 0.035)[1:])
+                    pts = w_pts
+                self.draw_strokes(ink, [pts], max(2.0, self.xh * it[2]))
+            elif it[0] == "delim":
+                dl, px, py, (dw, da, dd) = it[1], x + it[2], base - it[3], it[4]
+                self.draw_delim(dl, px, py - da, py + dd, dw, ink, self.xh)
             elif it[0] == "sym":
                 self.symbol(it[1], x + it[2] - it[4] * 0.0, base - it[3], ink, it[4])
             else:
                 c, gx = it[1], it[4]
-                m, bx, by, adv = self.src.glyph(c, gx * (1 + self.j(0.04)), self.rng)
-                m = warp_glyph(m, gx * 0.045 * self.mess, self.rng)
-                m = m.rotate(self.j(2.0), resample=Image.BICUBIC, center=(bx, by))
-                px, py = x + it[2], base - it[3]
+                m, bx, by, adv = self.src.glyph(c, gx * (1 + self.j(0.036)), self.rng)
+                m = deform_glyph(m, bx, by, gx, self.mess, self.rng)
+                px = x + it[2] + self.j(gx * 0.016)
+                py = base - it[3] + self.j(gx * 0.028)
                 self.page.stamp(ink, m, px - bx, py - by)
                 if it[0] == "bb":  # blackboard bold: second stroke on the stem
                     w, a, _ = self.src.metrics(c, gx)
@@ -1356,23 +1768,23 @@ class Renderer:
                 word_k = 1 + self.j(0.05)
                 word_dy = self.j(xh * 0.07)
             prev_space = False
-            gx = xh * word_k * (1 + self.j(0.04))
+            gx = xh * word_k * (1 + self.j(0.045))
             m, bx, by, adv = self.src.glyph(c, gx, self.rng)
-            m = warp_glyph(m, gx * 0.045 * self.mess, self.rng)
             if st.get("bold"):
                 sh = max(1, int(round(gx * 0.07)))
                 m2 = Image.new("L", (m.width + sh, m.height), 0)
                 m2.paste(m, (0, 0))
                 m2 = ImageChops.lighter(m2, ImageChops.offset(m2, sh, 0))
                 m = m2
-            ang = self.j(2.2) - math.degrees(line_slope)
-            m = m.rotate(ang, resample=Image.BICUBIC, center=(bx, by))
-            if self.rng.random() < 0.5:
-                m = m.point(lambda v, k=self.rng.uniform(0.86, 1.0): int(v * k))
+            m = deform_glyph(m, bx, by, gx, self.mess, self.rng, extra_deg=-math.degrees(line_slope))
+            if self.pen != "digital" and self.rng.random() < 0.5:
+                m = m.point(lambda v, k=self.rng.uniform(0.88, 1.0): int(v * k))
             wave = math.sin((x - x0_line) / (xh * 9) + wave_ph) * xh * 0.09 * self.mess
-            yb = base + (x - x0_line) * line_slope + word_dy + wave + self.j(xh * 0.035)
-            self.page.stamp(cink, m, x - bx + self.j(xh * 0.02), yb - by)
-            adv = adv * (1 + self.j(0.06))
+            yb = base + (x - x0_line) * line_slope + word_dy + wave + self.j(xh * 0.032)
+            self.page.stamp(cink, m, x - bx + self.j(xh * 0.018), yb - by)
+            if c.isdigit():
+                adv = max(adv + xh * 0.06, xh * 0.48)
+            adv = adv * (1 + self.j(0.032 if c.isdigit() else 0.042))
             placed.append((x, x + adv, st))
             x += adv
         return placed, x
@@ -1407,8 +1819,70 @@ class Renderer:
         for x0, x1, _, cink in spans("strike"):
             self.draw_strokes(cink, [wobble_points((x0 - 2, y_at(x0, -xh * 0.45)), (x1 + 2, y_at(x1, -xh * 0.5)),
                                                     xh * 0.05, self.rng)], xh * 0.13)
+        for x0, x1, _, cink in spans("scratch"):
+            w_sc = max(xh * 0.55, x1 - x0)
+            if self.rng.random() < 0.52:
+                # 2-3 quick back-and-forth pen strokes across the mistake
+                s1 = wobble_points((x0 - 2, y_at(x0, -xh * 0.68)), (x1 + 3, y_at(x1, -xh * 0.56 + self.j(0.8))), xh * 0.04, self.rng)
+                s2 = wobble_points((x1 + 3, y_at(x1, -xh * 0.44)), (x0 - 2, y_at(x0, -xh * 0.34 + self.j(0.8))), xh * 0.04, self.rng)
+                strokes = [s1, s2]
+                if self.rng.random() < 0.6:
+                    strokes.append(wobble_points((x0 - 1, y_at(x0, -xh * 0.24)), (x1 + 2, y_at(x1, -xh * 0.18 + self.j(0.8))), xh * 0.04, self.rng))
+                self.draw_strokes(cink, strokes, xh * 0.145)
+            else:
+                # Tight diagonal zig-zag scribble over the false start
+                pts = []
+                n_zz = max(5, min(9, int(round(w_sc / (xh * 0.28)))))
+                for k in range(n_zz + 1):
+                    px = x0 - 1 + (w_sc + 3) * (k / n_zz) + self.j(0.5)
+                    py = y_at(px, (-xh * 0.92 if k % 2 == 0 else -xh * 0.08) + self.j(0.5))
+                    pts.append((px, py))
+                self.draw_strokes(cink, [pts], xh * 0.135)
 
-    def paragraph(self, chars, x_text, xh, ink, first_prefix=None, underline_all=False, keep_lines=1):
+    def _maybe_inject_scratch(self, words):
+        """Occasionally insert a realistic crossed-out 2-3 char false start before a word/formula."""
+        if not self.scratch_targets or self.page_lines < self.scratch_targets[0] or not words:
+            return words
+        cands = []
+        for idx in range(len(words)):
+            wd = words[idx]
+            raw_txt = "".join(c for c, _ in wd).strip()
+            # Never put a cross-out before a leading subproblem label like (a), (b), 1.
+            if idx == 0 and re.match(r"^(\([a-zA-Z0-9]+\)|[0-9]+[.)]|[a-zA-Z][.)])$", raw_txt):
+                continue
+            alpha_chars = [c for c, _ in wd if c.isalpha()]
+            has_math = any(c == "\x02" for c, _ in wd)
+            if idx >= 1 and len(alpha_chars) >= 4:
+                cands.append((idx, "word", "".join(alpha_chars)))
+            elif has_math:
+                cands.append((idx, "math", next(st["math"] for c, st in wd if c == "\x02")))
+        if not cands:
+            return words
+        idx, kind, raw = self.rng.choice(cands)
+        self.scratch_targets.pop(0)
+        self.page_scratches += 1
+        self._scratch_uid += 1
+        uid = self._scratch_uid
+        if kind == "word":
+            if len(raw) >= 5 and self.rng.random() < 0.5:
+                slip = raw[0] + raw[2] + raw[1]
+            else:
+                slip = raw[:self.rng.choice((2, 3))]
+            fake = [(ch, {"scratch": uid}) for ch in slip] + [(" ", {})]
+        else:
+            toks = [t for t in re.findall(r"[A-Za-z0-9]+", raw) if t not in (
+                "frac", "sum", "prod", "int", "sqrt", "left", "right", "text", "mathrm",
+                "implies", "therefore", "because", "leq", "le", "geq", "ge", "approx", "sim", "bar", "hat"
+            )]
+            base_tok = toks[0][:2] if toks else self.rng.choice(["2x", "1+", "n1"])
+            if len(base_tok) == 1:
+                base_tok = base_tok + self.rng.choice(["2", "1", "x"])
+            if raw.lstrip().startswith("=") and idx == 0:
+                base_tok = "=" + base_tok[:2]
+            fake = [(ch, {"scratch": uid}) for ch in base_tok] + [(" ", {})]
+        return words[:idx] + [fake] + words[idx:]
+
+    def paragraph(self, chars, x_text, xh, ink, first_prefix=None, underline_all=False, keep_lines=1, allow_scratch=False):
         """Wrap and write chars starting at x_text; prefix(x, base) draws a bullet etc."""
         words, cur = [], []
         for item in chars:
@@ -1429,7 +1903,7 @@ class Renderer:
                 glued[-1] = glued[-1] + wd
             else:
                 glued.append(wd)
-        words = glued
+        words = self._maybe_inject_scratch(glued) if allow_scratch else glued
         lines, line, w = [], [], 0
         avail = self.right - x_text
         for wd in words:
@@ -1446,12 +1920,53 @@ class Renderer:
                 ln = ln[:-1]
             ext_a = max([self.math_box(st["math"], xh).a for c, st in ln if c == "\x02"] or [0])
             ext_d = max([self.math_box(st["math"], xh).d for c, st in ln if c == "\x02"] or [0])
-            up = ext_a - self.line_h * 0.8
-            if up > 0:
-                self.next_line(math.ceil(up / self.line_h))
-            self.ensure_room(keep_lines if i == 0 else 1)
-            slope = math.tan(math.radians(self.drift * self.rng.uniform(0.6, 1.4) + self.j(0.7)))
-            x = x_text + self.j(xh * 0.22) + (self.base - self.first_base) * math.tan(math.radians(self.drift * 0.25))
+            if self.paper_kind in ("lines", "college"):
+                self.snap_base()
+                # Estimate x-spans and ascents of items on this line to check true 2D collision with previous line
+                est_spans = []
+                cx_est = x_text
+                for c_it, st_it in ln:
+                    if c_it == "\x02":
+                        mb = self.math_box(st_it["math"], xh)
+                        est_spans.append((cx_est, cx_est + mb.w, mb.a))
+                        cx_est += mb.w
+                    else:
+                        cw = self.measure([(c_it, st_it)], xh)
+                        if c_it != " ":
+                            est_spans.append((cx_est, cx_est + cw, xh * 1.48))
+                        cx_est += cw
+
+                def _hits_prev(base_y):
+                    if base_y - max(ext_a, xh * 1.48) < 3.5 * self.mm:
+                        return True
+                    for ax0, ax1, a_up in est_spans:
+                        top_y = base_y - a_up
+                        for bx0, bx1, b_bot in self.prev_boxes:
+                            if ax0 < bx1 + xh * 0.15 and ax1 > bx0 - xh * 0.15:
+                                if top_y < b_bot + xh * 0.03:
+                                    return True
+                    return False
+
+                guard = 0
+                while _hits_prev(self.base) and guard < 6:
+                    prev_pages = len(self.pages)
+                    self.next_line(1.0)
+                    self.snap_base()
+                    if len(self.pages) > prev_pages:
+                        break
+                    guard += 1
+                self.ensure_room(keep_lines if i == 0 else 1)
+                self.snap_base()
+            else:
+                up = ext_a - self.line_h * 0.78
+                if up > 0:
+                    if self.paper_kind == "seyes":
+                        self.next_line(math.ceil(up / self.line_h))
+                    else:
+                        self.next_line((up + xh * 0.12) / self.line_h)
+                self.ensure_room(keep_lines if i == 0 else 1)
+            slope = math.tan(math.radians(self.drift * self.rng.uniform(0.6, 1.4) + self.j(0.42)))
+            x = x_text + self.j(xh * 0.28) + (self.base - self.first_base) * math.tan(math.radians(self.drift * 0.25))
             if i == 0 and first_prefix:
                 first_prefix(self.base)
             placed, x_end = self.write_chars(ln, x, self.base, xh, ink, slope)
@@ -1459,45 +1974,74 @@ class Renderer:
                 for k, (a, b, st) in enumerate(placed):
                     placed[k] = (a, b, {**st, "ul": True})
             self.decorate(placed, self.base, xh, ink, slope, x)
-            down = ext_d - self.line_h * 0.3
-            if down > 0:
-                self.next_line(math.ceil(down / self.line_h))
+            self.page_lines += 1
+            self.ink_bottom = max(self.ink_bottom, self.base + max(ext_d, xh * 0.24))
+            new_boxes = []
+            cx_cur = x
+            for c_it, st_it in ln:
+                if c_it == "\x02":
+                    mb = self.math_box(st_it["math"], xh)
+                    yb_it = self.base + ((cx_cur + mb.w * 0.5) - x) * slope + mb.d
+                    new_boxes.append((cx_cur, cx_cur + mb.w, yb_it))
+                    cx_cur += mb.w
+                else:
+                    cw = self.measure([(c_it, st_it)], xh)
+                    if c_it != " ":
+                        yb_it = self.base + (cx_cur - x) * slope + (xh * 0.45 if c_it in "gjpqy" else xh * 0.16)
+                        new_boxes.append((cx_cur, cx_cur + cw, yb_it))
+                    cx_cur += cw
+            self.prev_boxes = new_boxes
+            if self.paper_kind not in ("lines", "college"):
+                down = ext_d - self.line_h * 0.28
+                if down > 0:
+                    if self.paper_kind == "seyes":
+                        self.next_line(math.ceil(down / self.line_h))
+                    else:
+                        self.next_line((down + xh * 0.12) / self.line_h)
             if i < len(lines) - 1:
                 self.next_line()
+                if self.paper_kind in ("lines", "college"):
+                    self.snap_base()
 
     def render(self, blocks):
         xh = self.xh
-        indent_unit = self.line_h * 0.9
+        indent_unit = self.line_h * 0.75
         first = True
         prev = None
         for b in blocks:
             k = b["kind"]
-            if not first:
-                self.next_line(2 if k in ("h1", "h2") and prev != "blank" else 1)
-            prev = k
             if k == "blank":
-                first = False
+                if not first and prev != "blank" and self.paper_kind != "lines":
+                    self.next_line(1.0 if self.paper_kind in ("seyes", "college") else 0.38)
+                prev = "blank"
                 continue
+            if not first:
+                if k in ("h1", "h2") and prev != "blank":
+                    self.next_line(1.0 if self.paper_kind in ("lines", "college") else (2.0 if self.paper_kind == "seyes" else 1.25))
+                else:
+                    self.next_line(1.0)
+                if self.paper_kind in ("lines", "college"):
+                    self.snap_base()
+            prev = k
             first = False
             level = b.get("level", 0)
             x = self.margin_x + level * indent_unit
             st = {}
             if k == "h1":
                 if self.base > self.first_base + 1:
-                    self.ensure_room(3)
-                hx = xh * 1.75
+                    self.ensure_room(2)
+                hx = xh * 1.28
                 chars = parse_inline(b["text"], st)
-                self.paragraph(chars, x, hx, self.ink, keep_lines=3)
+                self.paragraph(chars, x, hx, self.ink, keep_lines=2)
                 w = min(self.measure(chars, hx), self.right - x)
-                y = self.base + hx * 0.35
-                self.draw_strokes(self.ink, [wobble_points((x - hx * 0.1, y), (x + w + hx * 0.4, y + self.j(2)),
-                                                           hx * 0.05, self.rng)], hx * 0.11)
-                self.next_line()
+                y = self.base + hx * 0.28
+                self.draw_strokes(self.ink, [wobble_points((x - hx * 0.05, y), (x + w + hx * 0.25, y + self.j(1.5)),
+                                                           hx * 0.04, self.rng)], hx * 0.10)
             elif k == "h2":
                 self.ensure_room(2)
-                self.paragraph(parse_inline(b["text"], {"ink": self.accent}), x, xh * 1.35, self.accent, keep_lines=2)
+                self.paragraph(parse_inline(b["text"], {"ink": self.accent}), x, xh * 1.14, self.accent, keep_lines=2)
             elif k == "h3":
-                self.paragraph(parse_inline(b["text"], {}), x, xh * 1.12, self.ink, underline_all=True, keep_lines=2)
+                self.paragraph(parse_inline(b["text"], {}), x, xh * 1.06, self.ink, underline_all=True, keep_lines=2)
             elif k == "rule":
                 y = self.base - xh * 0.5
                 self.draw_strokes(self.ink, [wobble_points((self.margin_x, y), (self.right, y + self.j(3)),
@@ -1507,19 +2051,19 @@ class Renderer:
                 def pre(base, x=x, level=level):
                     self.bullet_mark(x, base, self.ink, xh, level)
 
-                self.paragraph(parse_inline(b["text"], st), x + xh * (2.3 if (level == 0 and self.bullet == "arrow") else 1.7), xh, self.ink, first_prefix=pre)
+                self.paragraph(parse_inline(b["text"], st), x + xh * (2.3 if (level == 0 and self.bullet == "arrow") else 1.7), xh, self.ink, first_prefix=pre, allow_scratch=True)
             elif k == "number":
                 num = parse_inline(b["num"], {})
 
                 def pre(base, x=x, num=num):
                     self.write_chars(num, x, base, xh, self.ink, 0)
 
-                self.paragraph(parse_inline(b["text"], st), x + xh * 2.1, xh, self.ink, first_prefix=pre)
+                self.paragraph(parse_inline(b["text"], st), x + xh * 2.1, xh, self.ink, first_prefix=pre, allow_scratch=True)
             elif k == "arrow":
                 def pre(base, x=x):
                     self.arrow(x, base, self.ink, xh)
 
-                self.paragraph(parse_inline(b["text"], st), x + xh * 2.9, xh, self.ink, first_prefix=pre)
+                self.paragraph(parse_inline(b["text"], st), x + xh * 2.9, xh, self.ink, first_prefix=pre, allow_scratch=True)
             elif k == "important":
                 ink = self.important
 
@@ -1534,26 +2078,57 @@ class Renderer:
                 st2 = {}
                 self.paragraph(parse_inline(b["text"], st2), x + xh * 2.1, xh, self.ink, first_prefix=pre)
             elif k == "math":
-                indent = xh * 3
-                box = self.math_box(b["text"], xh * 1.1, display=True)
+                indent = xh * 1.2
+                box = self.math_box(b["text"], xh * 1.02, display=True)
                 avail = self.right - x - indent
                 if box.w > avail:  # too wide: smaller indent, then scale the formula down to fit
-                    indent = xh * 0.8
+                    indent = xh * 0.5
                     avail = self.right - x - indent
                     k = max(0.55, avail / box.w * 0.98)
-                    box = self.math_box(b["text"], xh * 1.1 * k, display=True)
-                n = max(1, math.ceil((box.a + box.d + xh * 0.6) / self.line_h))
-                self.ensure_room(n)
-                top = self.base - self.line_h * 0.72
-                bottom = self.base + (n - 1) * self.line_h + self.line_h * 0.28
-                yb = (top + bottom) / 2 + (box.a - box.d) / 2
-                self.draw_math(box, x + indent, yb, self.ink)
-                if n > 1:
-                    self.next_line(n - 1)
+                    box = self.math_box(b["text"], xh * 1.02 * k, display=True)
+                if self.paper_kind == "seyes":
+                    n = max(1, math.ceil((box.a + box.d + xh * 0.6) / self.line_h))
+                    self.ensure_room(n)
+                    top = self.base - self.line_h * 0.72
+                    bottom = self.base + (n - 1) * self.line_h + self.line_h * 0.28
+                    yb = (top + bottom) / 2 + (box.a - box.d) / 2
+                    self.draw_math(box, x + indent, yb, self.ink)
+                    self.page_lines += 1
+                    if n > 1:
+                        self.next_line(n - 1)
+                elif self.paper_kind in ("lines", "college"):
+                    self.snap_base()
+                    guard = 0
+                    while (self.base - box.a < self.ink_bottom + xh * 0.20 or self.base - box.a < 3.5 * self.mm) and guard < 6:
+                        prev_pages = len(self.pages)
+                        self.next_line(1.0)
+                        self.snap_base()
+                        if len(self.pages) > prev_pages:
+                            break
+                        guard += 1
+                    if self.base + box.d > self.H - self.bottom_margin:
+                        self.new_page()
+                        while self.base - box.a < 3.5 * self.mm:
+                            self.next_line(1.0)
+                    self.draw_math(box, x + indent, self.base, self.ink)
+                    self.page_lines += 1
+                    self.ink_bottom = max(self.ink_bottom, self.base + max(box.d, xh * 0.24))
+                    self.prev_boxes = [(x + indent, x + indent + box.w, self.base + box.d)]
+                else:
+                    need_h = box.a + box.d + xh * 0.35
+                    self.ensure_room(need_h / self.line_h)
+                    up_m = max(0.0, box.a - self.line_h * 0.75)
+                    if up_m > 0:
+                        self.base += up_m + xh * 0.10
+                    self.draw_math(box, x + indent, self.base, self.ink)
+                    self.page_lines += 1
+                    down_m = max(0.0, box.d - self.line_h * 0.25)
+                    if down_m > 0:
+                        self.base += down_m + xh * 0.10
             elif k == "aside":
                 self.paragraph(parse_inline(b["text"], {"ink": self.accent}), x, xh, self.accent)
             else:
-                self.paragraph(parse_inline(b["text"], st), x, xh, self.ink)
+                self.paragraph(parse_inline(b["text"], st), x, xh, self.ink, allow_scratch=True)
         return [p.finish() for p in self.pages]
 
 
@@ -1646,7 +2221,9 @@ def noise_like(shape, nr):
 def save_pages(pages, out):
     out = Path(out)
     if out.suffix.lower() == ".pdf":
-        pages[0].save(out, save_all=True, append_images=pages[1:], resolution=150.0, quality=88)
+        # Pillow 12 lazily registers Image.SAVE['JPEG']; PdfImagePlugin requires it initialized first.
+        Image.init()
+        pages[0].save(out, save_all=True, append_images=pages[1:], resolution=300.0, quality=95, subsampling=0)
     else:
         if len(pages) == 1:
             pages[0].save(out)
@@ -2118,10 +2695,11 @@ def build_hand(work, labels_path, out_dir, target=50.0):
 
 # --------------------------------------------------------------------------- CLI
 
-DEFAULT_HAND = HERE.parent / "hands" / "default"
+DEFAULT_HAND = HERE.parent / "hands" / "my-hand"
+FALLBACK_DEFAULT_HAND = HERE.parent / "hands" / "default"
 STYLES = {  # what each look means when the user does not override it
     "notebook": dict(paper="squared", ink="blue", photo=True),   # phone photo of a real notebook page
-    "ipad": dict(paper="grid", ink="black", photo=False),        # clean page exported from a tablet
+    "ipad": dict(paper="lines", ink="black", photo=False),       # clean lined tablet page exported as PDF/PNG
 }
 
 
@@ -2132,20 +2710,26 @@ def main(argv=None):
     r = sub.add_parser("render", help="notes markup -> handwritten PDF/PNG")
     r.add_argument("input", help="notes markup file (.md/.txt), or - for stdin")
     r.add_argument("-o", "--out", default="notes.pdf")
-    r.add_argument("--style", default="notebook", choices=list(STYLES),
-                   help="notebook: photo of a real notebook (default) · ipad: clean tablet page")
+    r.add_argument("--style", default="ipad", choices=list(STYLES),
+                   help="ipad: clean lined tablet page (default) · notebook: photo of a real notebook")
     r.add_argument("--paper", choices=["squared", "lines", "college", "seyes", "grid", "dots", "blank"],
-                   help="default: squared for notebook, grid for ipad")
+                   help="default: lines for ipad, squared for notebook")
     r.add_argument("--page", default="a4", choices=list(PAGES))
     r.add_argument("--hand", default="default",
-                   help="handwriting folder (from build-hand or learn); 'default' = the bundled one; 'none' = use --font")
+                   help="handwriting folder (from build-hand or learn); 'default' = hands/my-hand if present else hands/default; 'none' = use --font")
     r.add_argument("--font", help="use a handwriting font instead of a hand: caveat kalam patrick gochi indie playpen, or .ttf")
-    r.add_argument("--ink", choices=list(INKS), help="default: blue for notebook, black for ipad")
-    r.add_argument("--accent", default="blue", choices=list(INKS))
-    r.add_argument("--important", default="red", choices=list(INKS))
+    r.add_argument("--ink", choices=list(INKS), help="default: black for ipad, blue for notebook")
+    r.add_argument("--accent", default="black", choices=list(INKS))
+    r.add_argument("--important", default="black", choices=list(INKS))
     r.add_argument("--bullet", default="arrow", choices=["arrow", "dot", "dash"])
     r.add_argument("--size", default="medium", choices=list(SIZES))
-    r.add_argument("--mess", type=float, default=None, help="0.5 neat ... 1.5 rushed (default: 0.5 ipad, 1.35 notebook)")
+    r.add_argument("--mess", type=float, default=None, help="0.5 neat ... 1.5 rushed (default: 0.58 ipad with jitter, 1.35 notebook)")
+    r.add_argument("--jitter", action=argparse.BooleanOptionalAction, default=True,
+                   help="enable natural random jitter / baseline micro-drift (default: --jitter; use --no-jitter to turn off)")
+    r.add_argument("--scratch", action=argparse.BooleanOptionalAction, default=True,
+                   help="add 1-2 subtle crossed-out mistakes per page (default: --scratch; use --no-scratch to turn off)")
+    r.add_argument("--scratch-rate", type=int, default=2,
+                   help="max crossed-out mistakes per page when --scratch is enabled (default: 2)")
     r.add_argument("--seed", type=int)
 
     sg = sub.add_parser("segment", help="cut letters out of photos of notes already written; makes sheets to label")
@@ -2166,7 +2750,8 @@ def main(argv=None):
 
     a = ap.parse_args(argv)
     if a.cmd == "render":
-        text = sys.stdin.read() if a.input == "-" else Path(a.input).read_text(encoding="utf-8")
+        text = sys.stdin.read() if a.input == "-" else Path(a.input).read_text(encoding="utf-8-sig")
+        text = text.lstrip("\ufeff")
         style = STYLES[a.style]
         a.mess_set = a.mess is not None
         if a.mess is None:
@@ -2182,16 +2767,28 @@ def main(argv=None):
         src.fallbacks += [FontSource(p) for p in SYSTEM_FALLBACKS if Path(p).is_file()][:1]
         hand = None if (a.font and a.hand == "default") or a.hand == "none" else a.hand
         if hand == "default":
-            hand = DEFAULT_HAND if (DEFAULT_HAND / "hand.json").is_file() else None
+            if (DEFAULT_HAND / "hand.json").is_file():
+                hand = DEFAULT_HAND
+            elif (FALLBACK_DEFAULT_HAND / "hand.json").is_file():
+                hand = FALLBACK_DEFAULT_HAND
+            else:
+                hand = None
         if hand:
             src = HandSource(hand, src)
             if not photo:
                 src = PencilHandSource(src)  # iPad engine: separate stroke pipeline
+        if not a.jitter:
+            eff_mess = a.mess if a.mess_set else 0.0
+            eff_drift = 0.0
+        else:
+            eff_mess = max(a.mess, 1.35) if photo else (a.mess if a.mess_set else 0.58)
+            eff_drift = 1.3 if photo else 0.12
         rd = Renderer(src, paper=paper, page=a.page, size=a.size, ink=ink, accent=a.accent,
                       important=a.important, bullet=a.bullet, seed=a.seed,
-                      mess=max(a.mess, 1.35) if photo else (a.mess if a.mess_set else 0.5),  # tablet: tidy writing
-                      drift=1.3 if photo else 0.0,
-                      pen="ballpoint" if photo else "digital")
+                      mess=eff_mess,
+                      drift=eff_drift,
+                      pen="ballpoint" if photo else "digital",
+                      scratch_rate=(a.scratch_rate if a.scratch else 0))
         pages = rd.render(parse_blocks(text))
         if photo:
             pages = [photoize(pg, rd.rng, rd.mm) for pg in pages]

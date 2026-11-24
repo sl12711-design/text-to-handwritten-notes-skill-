@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 .DS_Store
 my-hand/
+hands/my-hand/
 dist/

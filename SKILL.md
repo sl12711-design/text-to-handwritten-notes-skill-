@@ -7,16 +7,15 @@ description: Turn any content (a PDF, pasted text, a solution, a web page, a pho
 
 You turn content into pages that look handwritten. The renderer is `scripts/handnotes.py`. It only needs Python with Pillow and numpy, which are already present in the ChatGPT and Claude code sandboxes.
 
-**Default result:** a phone photo of a notebook page on squared paper, in blue ink, written in the bundled default handwriting. If the user asks for nothing special, give them that.
+**Default result:** a crisp 300 DPI lined A4 tablet page (`--style ipad --paper lines`, subtle light-gray horizontal ruled lines with a left margin line), in pure black ink (`--ink black --accent black --important black`), using `hands/my-hand` if present locally or falling back to `hands/default`, with natural per-character/symbol jitter (`--jitter`) and 1–2 subtle crossed-out false starts per page (`--scratch`) enabled by default.
 
-**The paper is squared by default in every case.** The user may send only their handwriting and an assignment, only the text they want written by hand, or nothing but a request. Always use squared paper unless they explicitly name another paper or the iPad look. Do not copy the paper from their handwriting photos or from the assignment's layout: a lined or blank photo is only a source of letters.
+**Always use horizontal lined tablet paper (`--style ipad --paper lines`) by default**, unless the user explicitly requests blank white paper (`--paper blank`), notebook photo mode (`--style notebook`), or another paper/ink option. If the user asks to turn off cross-outs or random jitter, pass `--no-scratch` and/or `--no-jitter`.
 
 ## Step 0: whose handwriting?
 
-Ask once, briefly: *"Send me as many photos of your own handwriting as you can (any pages you already wrote: notes, homework). Otherwise I'll use the default handwriting."*
-
-- **No photos:** use the default handwriting. Do not ask again.
-- **Photos:** learn them first (see *Learning a handwriting from photos* below), then render with `--hand their-hand`. More pages give more samples per letter and a more natural result. 3 to 6 pages is good.
+- **Local custom hand:** If `hands/my-hand/hand.json` exists locally, `scripts/handnotes.py` uses it automatically (`--hand default`). Otherwise it falls back cleanly to the bundled `hands/default`.
+- **If the user sends photos of their handwriting:** learn them first (see *Learning a handwriting from photos* below) and save to `hands/my-hand` (or pass `--hand their-hand`). More pages give more samples per letter and a more natural result; 3 to 6 pages is good.
+- **If no photos are provided and no `hands/my-hand` exists:** use the bundled default handwriting immediately—never ask for photos unless they want their own handwriting.
 
 ## Step 1: read the input
 
@@ -24,32 +23,66 @@ Ask once, briefly: *"Send me as many photos of your own handwriting as you can (
 - **Photo, screenshot, whiteboard:** read it yourself with vision. Do not run OCR libraries.
 - **Text, a solution, a web page:** use it as given.
 
-## Step 2: write the page
+## Step 2: write the page (Compact Layout, Concise Math & High-Clarity Rules)
 
-There are two cases.
+### Rule 1: Compact Layout — Eliminate Excessive Whitespace
+- **No unnecessary banner headers:** Do NOT add boilerplate title banners (`# Problem Set`, `# Solution Notes`), course headers (`MATH 101 - Statistics`), or redundant divider lines unless the user asks for a title block. Start directly with `## Exercise 1` (or `1.`).
+- **No wasted blank lines:** Do NOT put blank lines between consecutive equations or steps within the same sub-problem `(a)`, `(b)`, `(c)`. Keep steps tight on consecutive ruled lines, with at most a compact break between major sections.
+- **Prefer inline `$...$` and left-aligned stacked `=` lines over padded `$$...$$` blocks:** Write regular equations on normal lines (`$P(Y \leq y) = P(X^\alpha \leq y) = P(X \leq y^{1/\alpha})$`, then next line `$= 1 - e^{-\lambda^\alpha y}$`) instead of wrapping every single equation in `$$...$$`. Reserve `$$...$$` only for tall multi-story fractions, large integrals, or summations with limits.
+- **High page utilization:** Aim for 32–38 compact lines per A4 page, matching real handwritten note density. Do not use giant `#` headings or `---` horizontal rules unless requested.
 
-- **Notes from a lesson:** write what a good student writes. Short lines, keywords, the source's structure, 15 to 30 % of its length.
-- **A solution or homework the user gives:** keep every step and every number. Write it the way a student writes on paper: `1/`, `a)` and `b)` labels, one equation per line, `=>` between steps. Do not add AI-looking decoration: no "Tip:", no highlighting everywhere, no bold. Underline or `!!` a final result only if the user would.
+### Rule 2: Concise, Direct Step-by-Step Mathematical Style
+When turning verbose explanations or typed solutions into handwritten notes, **distill prose into clean, direct step-by-step math** while keeping every required condition, reasoning step, and exact number intact:
+- **Skip redundant problem restatements:** Omit filler openings like `Given: n = 500 observations...`, `We want to find...`, `Recall that...`, `From the problem statement...`. Jump straight into `(a)` and the formula/substitution.
+- **Drop meta-commentary and parenthetical filler:** Omit boilerplate like `Notice that...`, `It is easy to verify...`, `In conclusion...`, `Tip: ...`.
+- **Use crisp mathematical connectors:**
+  - Use `$\because$` (since/because), `$\therefore$` (therefore), `$\implies$`, `Let`, `Then`, `So`, `Thus`, `When $n=2$:`.
+  - Stack multi-step algebra vertically as `= ...` on consecutive lines with no filler words in between.
+  - State conclusions concisely: `$\therefore T_1$ is unbiased`, `$\therefore Y \sim \text{Exp}(\lambda^\alpha)$`.
+- **Clean formatting:** Avoid `**bold**` clutter, `==highlights==`, or `!!` red callouts unless requested.
 
-Keep the user's language. Keep numbers, names and formulas exact.
+**Example (Verbose vs. Concise Handwritten Style):**
+- *Verbose (avoid):*
+  ```
+  # Homework Notes
+  MATH 101 - Statistics
+  ### Exercise 1
+  Given: n = 500 observations, bin width |B_i| = 1.
+
+  a) Since the total area under the density histogram is equal to 1, the height on each bin B_i is given by:
+  $$h_i = \frac{\text{count}_i}{n |B_i|} = \frac{\text{count}_i}{500}$$
+  (Note: this follows directly from the histogram definition.)
+  ```
+- *Concise (preferred):*
+  ```
+  ## Exercise 1
+  (a) $\because \sum_i h_i |B_i| = 1$ and $|B_i| = 1, n = 500$,
+  $h_i = \frac{\text{count}_i}{n |B_i|} = \frac{\text{count}_i}{500}$
+  ```
+
+Keep the user's language for genuine required verbal answers, and keep every mathematical condition, symbol, and numerical result exact.
+
+### Rule 3: Crystal-Clear Legibility for Every Letter, Digit, and Formula
+Every single character (`a-z`, `A-Z`, especially `l`/`L`, `i`, `x`, `z`), every digit (`0-9`), and every subscript/superscript MUST remain sharp, high-contrast, and unmistakably readable at normal viewing zoom:
+- **300 DPI High-Contrast Output Only:** Always render at full **300 DPI** (`2480×3508` for A4) with solid dark ink and high-quality PDF encoding (`resolution=300, quality=95, subsampling=0`). Never downscale, blur, or re-compress the output PDF/PNG.
+- **Never stack deeply nested micro-fractions inline:** Avoid 3-story inline compound fractions like `$\left(\frac{1}{\frac{1}{n}\sum_{i=1}^n x_i^\alpha}\right)^{1/\alpha}$` where inner symbols shrink twice. Either write them cleanly as `$\left(\frac{1}{n}\sum_{i=1}^n x_i^\alpha\right)^{-1/\alpha}$` or place tall multi-layer fractions in a `$$...$$` display block so every digit and subscript stays full-sized and clear.
+- **Strict Glyph Quality Gate (when updating `my-hand`):** Never admit blurry low-resolution crops, flat-top `Z`-like `2`s (digit `2` must always have a clear rounded top arch distinct from `z`/`Z`), broken digits (`4`/`5`/`8` with fused loops, or `9` with an oversized descender tail), or isolated wide cursive-loop `l` (`ℓ`) that looks awkward inside print words (`sample`, `analogue`). Always render and visually audit a 62-character (`a-z`, `A-Z`, `0-9`) contact sheet before saving `hands/my-hand`.
+- **Per-Character Subtle Jitter on Every Letter, Digit, Symbol & Delimiter:** When `--jitter` is ON (default), every letter (`a-z`, `A-Z`) and digit (`0-9`) in both text and math formulas receives subtle independent micro-variations in width/height ratio, slant/shear, rotation, baseline bounce, and smooth curve elasticity so adjacent repeated characters (such as `22`, `44`, `0.0121`, `ee`, `ss`, `ll`) never look like identical clones while remaining 100% sharp; likewise, every drawn symbol—arrows (`\implies`, `\to`), approx (`\approx`, `\sim`), inequalities (`\leq`, `\geq`, `<`, `>`), slashes (`/`), parentheses `()` & `\left(\right)`, square brackets `[]` & `\left[\right]`, `|...|`, because/therefore (`\because`, `\therefore`), radicals `\sqrt{}`, and fraction bars—varies naturally on every occurrence. Passing `--no-jitter` cleanly disables this variation.
 
 Markup:
 
 ```
-# Title                     ## Heading                ### Sub-heading (underlined)
-- bullet (2 spaces = one level deeper)                1. numbered
--> arrow line               !! IMPORTANT line (red)   > side note (accent ink)
-[ ] to-do   [x] done (ticked)   ---  separator        blank line = skip a line
-inline: ==highlight==  **bold**  __underline__  ~~crossed~~  {red}coloured ink{/}  ->  (drawn arrow)
-\$  = a dollar sign      $...$ inline maths      $$...$$ alone on a line = displayed formula
+# Title (avoid unless asked)   ## Exercise N             ### Sub-heading (underlined)
+- bullet (2 spaces = deeper)   1. numbered               blank line = small gap
+$...$ inline maths             $$...$$ tall display formula (use sparingly)
 ```
 
-**Maths.** Put every formula in `$...$`, even a short one like `$x^2$` or `$E_2$`. Supported:
-`\frac{a}{b}`, `\sum_{k=1}^{n}`, `\prod`, `\int_a^b`, `\lim_{n \to +\infty}`, `\sqrt{x}`, `\sqrt[3]{x}`, `x^{n+1}`, `x_i`, `\left( ... \right)`, `\binom{n}{k}`, `\vec{u}`, `\bar{x}`, `\mathbb{R}`, `\text{...}`, `\mid`, Greek letters, `\in \subset \cup \cap \emptyset \forall \exists \leq \geq \neq \approx \pm \times \cdot \infty \to \implies \iff`, and spaces `\, \; \quad`.
+**Maths.** Put every formula in `$...$`, even short ones like `$x^2$`, `$n=16$`, or `$E_2$`. Supported:
+`\frac{a}{b}`, `\sum_{k=1}^{n}`, `\prod`, `\int_a^b`, `\lim_{n \to +\infty}`, `\sqrt{x}`, `\sqrt[3]{x}`, `x^{n+1}`, `x_i`, `\left( ... \right)`, `\binom{n}{k}`, `\vec{u}`, `\bar{x}`, `\hat{\lambda}`, `\mathbb{R}`, `\text{...}`, `\mid`, Greek letters, `\therefore` (`∴`), `\because` (`∵`), `\in \subset \cup \cap \emptyset \forall \exists \leq \geq \neq \approx \pm \times \cdot \infty \to \implies \iff`, and spaces `\, \; \quad`.
 
-Write decimals as the source does (`0,81` or `0.81`), and large numbers as `50\,000` inside maths. Write intervals as they are read: `$[0, 1[$`. Put big formulas on their own `$$...$$` line. A formula too wide for the page is shrunk to fit, but splitting a long one at `=` onto two lines looks more natural.
+Write decimals as the source does (`0.81` or `0,81`). Split long derivations across consecutive `$= ...$` lines rather than one wide shrinking line.
 
-Save the page as `notes.md`.
+Save the page as `notes.md` (UTF-8 without BOM).
 
 ## Step 3: render
 
@@ -57,15 +90,18 @@ Save the page as `notes.md`.
 python scripts/handnotes.py render notes.md -o notes.pdf
 ```
 
-That gives the default: a notebook photo, squared paper, blue ink, default handwriting. With their own handwriting it is the same command plus `--hand their-hand`, still on squared paper. Change only what the user explicitly asked for:
+Running with no extra flags outputs: 300 DPI A4 lined tablet paper (`--style ipad --paper lines`), pure black ink (`--ink black --accent black --important black`), `hands/my-hand` if present (or `hands/default`), natural per-character/symbol jitter (`--jitter`), and 1–2 subtle crossed-out false starts per page (`--scratch`). Change only what the user explicitly asked for:
 
 | option | values |
 |---|---|
-| `--style` | **notebook** (phone photo of a real page: uneven light, lines drifting down, tilted sheet, ballpoint ink) · ipad (separate engine: letters retraced as solid, even Apple Pencil strokes on a clean page) |
-| `--paper` | **squared** (notebook) or **grid** (ipad), lines, college, seyes, dots, blank |
-| `--hand` | **default**, or a folder made by `build-hand` or `learn` |
+| `--style` | **ipad** (default: solid Apple Pencil strokes on a clean lined tablet page) · notebook (phone photo of a real page: uneven light, lines drifting down, tilted sheet, ballpoint ink) |
+| `--paper` | **lines** (default for ipad: subtle horizontal ruled lines) · blank (plain white) · **squared** (default for notebook) · college · seyes · grid · dots |
+| `--hand` | **default** (`hands/my-hand`), `hands/default`, or a folder made by `build-hand` or `learn` |
 | `--font` | use a handwriting font instead: caveat, kalam, patrick, gochi, indie, playpen |
-| `--ink` | **blue** (notebook) or **black** (ipad), red, green, purple, pencil |
+| `--ink` | **black** (default for ipad) or **blue** (default for notebook), red, green, purple, pencil |
+| `--jitter` / `--no-jitter` | **--jitter** (default ON: natural random glyph/baseline jitter) · `--no-jitter` (turn off jitter for neat alignment) |
+| `--scratch` / `--no-scratch` | **--scratch** (default ON: 1–2 subtle crossed-out mistakes per page) · `--no-scratch` (turn off all cross-outs) |
+| `--scratch-rate N` | max crossed-out mistakes per page when `--scratch` is ON (default: `2`) |
 | `--page` | **a4**, letter, ipad, ipad-landscape |
 | `--seed N` | the same page every time; change N for another take |
 
@@ -73,7 +109,11 @@ Use `-o notes.png` to get images (`notes-1.png`, `notes-2.png`, and so on) inste
 
 ## Step 4: check, then deliver
 
-Look at page 1 (render a PNG if you cannot view PDFs). Check that no line runs off the page or overlaps another, and that every number matches the source. Then give the file.
+Render or inspect the output at full resolution (check PNG pages directly if you cannot view PDFs). Zoom-check that:
+1. **Every letter (`a-z`, `A-Z`, including `l`/`L`) and every digit (`0-9`) is sharp, dark, and 100% legible**, including inside fractions, exponents, and summation limits (`i=1`, `n`).
+2. **No line runs off the page or overlaps vertically** with the line above/below on horizontal ruled paper.
+3. **Every number and symbol matches the source** with zero AI filler prose or excessive whitespace.
+Then deliver the file.
 
 ## Learning a handwriting from photos
 
